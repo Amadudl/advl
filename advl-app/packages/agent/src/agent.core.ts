@@ -16,7 +16,7 @@ import type { AgentMessage, AgentResponsePayload, UseCase, DCMDocument } from '@
 import { AGENT_MESSAGE_TYPES } from '@advl/shared'
 import { dcmEngine } from './dcm.engine.js'
 import { rulesEngine } from './rules.engine.js'
-import { llmClient, buildAdvlSystemPrompt } from './llm.client.js'
+import { llmClient } from './llm.client.js'
 import { scanCodebase } from './tools/codebase-scanner.js'
 import { StorageService } from './storage.service.js'
 import { loadConfig } from './config.loader.js'
@@ -327,6 +327,8 @@ Provide the implementation as TypeScript code with:
     const payload = message.payload as { prompt: string }
     const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
+    console.log(`[Agent][QUERY] "${payload.prompt?.slice(0, 120)}"`)
+
     if (!payload.prompt?.trim()) {
       return makeResponse(message.id, {
         success: false,
@@ -350,21 +352,38 @@ Provide the implementation as TypeScript code with:
     }
 
     try {
-      let dcm
+      let dcmContext = ''
       try {
-        dcm = await dcmEngine.readDCM(projectRoot)
+        const dcm = await dcmEngine.readDCM(projectRoot)
+        dcmContext = `\n\nCurrent project: ${dcm.project ?? 'unknown'}\nRegistered use cases: ${dcm.use_cases.length}`
       } catch {
-        dcm = undefined
+        dcmContext = '\n\nNo project loaded.'
       }
 
-      const systemPrompt = buildAdvlSystemPrompt(dcm)
-      const response = await llmClient.complete(payload.prompt, systemPrompt)
+      // Chat-specific system prompt — NEVER output JSON, always plain markdown
+      const systemPrompt = `You are the ADVL Agent — a concise, direct engineering collaborator.
+
+You help developers build software according to ADVL principles:
+- Think in use cases and business value
+- No duplicate logic
+- No fake implementations (no TODOs, no empty stubs)
+- Explicit architectural decisions${dcmContext}
+
+IMPORTANT: Reply in plain, readable markdown. NEVER wrap your answer in JSON. NEVER output a JSON object as your main response. Just answer the question directly and helpfully.`
+
+      const response = await llmClient.complete([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: payload.prompt },
+      ])
+
+      console.log(`[Agent][QUERY DONE] ${response.length} chars`)
 
       return makeResponse(message.id, {
         success: true,
         message: response,
       })
     } catch (err) {
+      console.error(`[Agent][QUERY ERROR]`, err)
       return makeResponse(message.id, { success: false, message: String(err) })
     }
   },

@@ -55,13 +55,17 @@ wss.on('connection', (ws: WebSocket, req) => {
       return
     }
 
-    log('debug', `→ [${message.type}] id=${message.id}`)
+    log('info', `→ [${message.type}] id=${message.id.slice(0, 8)}`)
 
     try {
       const response = await routeMessage(message, sendStatus)
       if (response) {
         ws.send(JSON.stringify(response))
-        log('debug', `← [${response.type}] replyTo=${message.id}`)
+        const responsePayload = response.payload as { message?: string; success?: boolean }
+        const preview = typeof responsePayload?.message === 'string'
+          ? responsePayload.message.slice(0, 80).replace(/\n/g, ' ')
+          : ''
+        log('info', `← [${response.type}] success=${responsePayload?.success ?? '?'} ${preview ? `| "${preview}${preview.length === 80 ? '…' : ''}"` : ''}`)
       }
     } catch (err) {
       const errorResponse: AgentMessage = {
