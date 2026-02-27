@@ -73,12 +73,30 @@ export interface RuleValidatePayload {
   data: unknown
 }
 
+export interface ChatHistoryEntry {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AgentQueryPayload {
+  prompt: string
+  /** Conversation history for multi-turn context */
+  history?: ChatHistoryEntry[]
+}
+
 export interface AgentResponsePayload {
   success: boolean
   data?: unknown
   message?: string
   violations?: RuleViolation[]
+  /** Structured action the agent wants to perform on the DCM */
+  action?: AgentAction
 }
+
+export type AgentAction =
+  | { type: 'register_use_case'; payload: { title: string; value: string; actor: string; preconditions?: string[]; postconditions?: string[] } }
+  | { type: 'update_use_case'; payload: { id: string; [key: string]: unknown } }
+  | { type: 'none' }
 
 export interface AgentErrorPayload {
   code: string

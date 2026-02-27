@@ -12,7 +12,7 @@
  */
 import fs from 'node:fs/promises'
 import { v4 as uuidv4 } from 'uuid'
-import type { AgentMessage, AgentResponsePayload, UseCase, DCMDocument } from '@advl/shared'
+import type { AgentMessage, AgentResponsePayload, UseCase, DCM, DCMDocument, AgentAction } from '@advl/shared'
 import { AGENT_MESSAGE_TYPES } from '@advl/shared'
 import { dcmEngine } from './dcm.engine.js'
 import { rulesEngine } from './rules.engine.js'
@@ -54,8 +54,8 @@ export const agentCore = {
    * Requires ADVL_LLM_API_KEY. Returns an error message if not configured.
    */
   async handleUseCaseSubmit(message: AgentMessage): Promise<AgentMessage> {
-    const payload = message.payload as { description: string }
-    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
+    const payload = message.payload as { description: string; projectRoot?: string }
+    const projectRoot = payload.projectRoot ?? process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
     if (!llmClient.isConfigured()) {
       return makeResponse(message.id, {
@@ -324,8 +324,9 @@ Provide the implementation as TypeScript code with:
    * UC-003 / VE-AgentChat-Submit
    */
   async handleAgentQuery(message: AgentMessage): Promise<AgentMessage> {
-    const payload = message.payload as { prompt: string }
-    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
+    const payload = message.payload as { prompt: string; history?: Array<{ role: 'user' | 'assistant'; content: string }>; projectRoot?: string }
+    // Client sends projectRoot with each query — use it, fall back to env/cwd
+    const projectRoot = payload.projectRoot ?? process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
     console.log(`[Agent][QUERY] "${payload.prompt?.slice(0, 120)}"`)
 
@@ -352,35 +353,145 @@ Provide the implementation as TypeScript code with:
     }
 
     try {
-      let dcmContext = ''
+      // ── Build full DCM context ──────────────────────────────────────────────
+      let dcmSection = 'No project loaded — no DCM context available.'
+
       try {
-        const dcm = await dcmEngine.readDCM(projectRoot)
-        dcmContext = `\n\nCurrent project: ${dcm.project ?? 'unknown'}\nRegistered use cases: ${dcm.use_cases.length}`
+        const d: DCM = await dcmEngine.readDCM(projectRoot)
+
+        // Stack summary
+        const stack = d.stack ? Object.entries(d.stack)
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => `  ${k}: ${String(v)}`)
+          .join('\n') : '  (not defined)'
+
+        // All use cases with their functions
+        const ucLines = (d.use_cases ?? []).map((uc) => {
+          const fns = uc.functions?.length
+            ? uc.functions.map((f) => `      - ${f.name} @ ${f.file}:${f.line}${f.endpoint ? ` [${f.endpoint}]` : ''}`).join('\n')
+            : '      (no functions registered)'
+          return `  [${uc.id}] ${uc.title} (${uc.status})\n    value: ${uc.value}\n    actor: ${uc.actor}\n    functions:\n${fns}`
+        }).join('\n\n') || '  (none)'
+
+        // ADRs
+        const adrLines = (d.adrs ?? []).map((a) =>
+          `  [${a.id}] ${a.title} — ${a.status}: ${a.decision}`
+        ).join('\n') || '  (none)'
+
+        dcmSection = `Project: ${d.project ?? 'unknown'} (DCM v${d.version})
+
+TECH STACK:
+${stack}
+
+USE CASES (${(d.use_cases ?? []).length} total):
+${ucLines}
+
+ARCHITECTURE DECISIONS (ADRs):
+${adrLines}`
       } catch {
-        dcmContext = '\n\nNo project loaded.'
+        // No DCM on disk yet — agent works without it
       }
 
-      // Chat-specific system prompt — direct, no clarification questions, just deliver
-      const systemPrompt = `You are a senior software engineer assistant. Be extremely concise and direct.
+      // ── System prompt — ADVL-aware, context-rich ───────────────────────────
+      const systemPrompt = `You are the ADVL Agent — an engineering collaborator embedded in a structured software development system called ADVL (AI Development Visual Language).
 
-Rules:
-- NEVER ask clarifying questions. Just pick the most sensible default and deliver immediately.
-- ALWAYS provide complete, working, copy-paste-ready code. No TODOs, no stubs, no placeholders.
-- Reply in markdown with proper fenced code blocks.
-- Default stack when none specified: HTML + vanilla JS (runs in any browser, zero setup).
-- If a specific language/framework is mentioned, use that instead.
-- Code first. One sentence of explanation max.${dcmContext}`
+## Your Role
+You know the project's full context: its tech stack, all registered use cases, their implementation status, and architectural decisions. You help the developer implement features correctly within their existing system.
 
-      const response = await llmClient.complete([
+## Current Project Context
+${dcmSection}
+
+## How You Work
+1. **Always use the project's tech stack** — never suggest a different framework or language unless explicitly asked.
+2. **Reference existing use cases** — if the user's request matches an existing UC, say so and work within it.
+3. **Ask for details when needed** — if you need more info to implement correctly, ask ONE focused question. Don't ask multiple questions at once.
+4. **Register new use cases** — if the user describes new functionality not in the DCM, include an ACTION block at the end of your reply to register it.
+5. **Deliver working code** — always complete, copy-paste-ready, no TODOs or stubs.
+6. **Reply in markdown** — use fenced code blocks with language tags. Never output raw JSON as your main reply.
+
+## Action Protocol
+When you need to register a new use case, append this block at the very end of your response (after all prose/code):
+
+\`\`\`advl-action
+{
+  "type": "register_use_case",
+  "payload": {
+    "title": "Actor does something",
+    "value": "Business value statement",
+    "actor": "Developer|User|System",
+    "preconditions": ["..."],
+    "postconditions": ["..."]
+  }
+}
+\`\`\`
+
+Only include this block if genuinely registering a new UC. Omit it otherwise.`
+
+      // ── Build message array with history ──────────────────────────────────
+      const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: payload.prompt },
-      ])
+      ]
 
-      console.log(`[Agent][QUERY DONE] ${response.length} chars`)
+      // Inject conversation history (last 10 turns max to stay within context)
+      const history = payload.history ?? []
+      const trimmedHistory = history.slice(-10)
+      for (const entry of trimmedHistory) {
+        messages.push({ role: entry.role, content: entry.content })
+      }
+
+      // Current user message
+      messages.push({ role: 'user', content: payload.prompt })
+
+      const rawResponse = await llmClient.complete(messages)
+      console.log(`[Agent][QUERY DONE] ${rawResponse.length} chars`)
+
+      // ── Parse optional action block ────────────────────────────────────────
+      const actionMatch = rawResponse.match(/```advl-action\n([\s\S]*?)```/)
+      let action: AgentAction | undefined
+      let displayMessage = rawResponse
+
+      if (actionMatch?.[1]) {
+        try {
+          action = JSON.parse(actionMatch[1].trim()) as AgentAction
+          // Execute the action server-side immediately
+          if (action.type === 'register_use_case') {
+            const ucPayload = action.payload
+            const newUC = await dcmEngine.registerUseCase({
+              title: ucPayload.title,
+              value: ucPayload.value,
+              actor: ucPayload.actor,
+              status: 'planned',
+              visual_element_id: 'pending',
+              functions: [],
+              preconditions: ucPayload.preconditions ?? [],
+              postconditions: ucPayload.postconditions ?? [],
+              rules_applied: [],
+              deprecated_date: null,
+              deprecated_reason: null,
+              replaced_by: null,
+            }, projectRoot)
+            console.log(`[Agent][ACTION] Registered UC: ${newUC.id} — ${newUC.title}`)
+            // Remove the action block from display but add a confirmation line
+            displayMessage = rawResponse.replace(/\n?```advl-action[\s\S]*?```/g, '')
+              + `\n\n> ✅ Use case **${newUC.id}** registered in DCM: "${newUC.title}"`
+            // Return the new UC in data so the store can update the canvas
+            return makeResponse(message.id, {
+              success: true,
+              message: displayMessage,
+              data: { use_case: newUC, action },
+            })
+          }
+        } catch (parseErr) {
+          console.warn('[Agent][ACTION] Failed to parse action block:', parseErr)
+          // Strip broken action block from display
+          displayMessage = rawResponse.replace(/\n?```advl-action[\s\S]*?```/g, '')
+        }
+      }
 
       return makeResponse(message.id, {
         success: true,
-        message: response,
+        message: displayMessage,
+        data: action ? { action } : undefined,
       })
     } catch (err) {
       console.error(`[Agent][QUERY ERROR]`, err)

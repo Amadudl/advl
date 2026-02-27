@@ -45,6 +45,24 @@ router.get('/health', (_req: Request, res: Response) => {
   res.json({ ok: true, data: { version: ADVL_VERSION, mode: 'server' } })
 })
 
+// ── POST /api/project/root — set active project root ─────────────────────────
+// Browser calls this whenever the user opens a project.
+// Sets process.env.ADVL_PROJECT_ROOT so the spawned agent process can read it
+// on its next query (agent inherits env from server via ...process.env at spawn).
+// Also broadcasts the new root over WebSocket so the agent gets it immediately.
+
+router.post('/project/root', (req: Request, res: Response) => {
+  const { root } = req.body as { root?: string }
+  if (!root) { fail(res, 400, 'root is required'); return }
+  process.env['ADVL_PROJECT_ROOT'] = root
+  console.log(`[Server] Project root set: ${root}`)
+  ok(res, { root })
+})
+
+router.get('/project/root', (_req: Request, res: Response) => {
+  ok(res, { root: process.env['ADVL_PROJECT_ROOT'] ?? null })
+})
+
 // ── GET /api/fs/read?path= ────────────────────────────────────────────────────
 
 router.get('/fs/read', async (req: Request, res: Response) => {

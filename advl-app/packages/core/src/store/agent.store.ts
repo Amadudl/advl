@@ -29,6 +29,8 @@ export interface ChatMessage {
 interface AgentState {
   status: AgentStatus
   messages: ChatMessage[]
+  /** Flat history for LLM multi-turn context — synced with messages */
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
   isConnected: boolean
 
   sendMessage: (type: AgentMessageType, payload: unknown) => Promise<void>
@@ -38,6 +40,7 @@ interface AgentState {
   addAgentMessage: (message: AgentMessage) => void
   setStatus: (status: AgentStatus) => void
   setConnected: (connected: boolean) => void
+  clearHistory: () => void
 }
 
 /**
@@ -94,6 +97,7 @@ export const useAgentStore = create<AgentState>((set, get) => {
   return {
     status: 'idle',
     messages: [],
+    history: [],
     isConnected: false,
 
     sendMessage: async (type: AgentMessageType, payload: unknown) => {
@@ -106,11 +110,13 @@ export const useAgentStore = create<AgentState>((set, get) => {
       await platform.sendToAgent(message)
     },
 
+
     submitUseCase: async (description: string) => {
       get().addUserMessage(description)
       set({ status: 'thinking' })
+      const projectRoot = await platform.getProjectRoot().catch(() => '')
       try {
-        await get().sendMessage(AGENT_MESSAGE_TYPES.USE_CASE_SUBMIT, { description })
+        await get().sendMessage(AGENT_MESSAGE_TYPES.USE_CASE_SUBMIT, { description, projectRoot: projectRoot || undefined })
       } catch (err) {
         set({ status: 'error' })
         get().addAgentMessage({
@@ -132,8 +138,11 @@ export const useAgentStore = create<AgentState>((set, get) => {
     sendQuery: async (prompt: string) => {
       get().addUserMessage(prompt)
       set({ status: 'thinking' })
+      // Attach current history and projectRoot so the agent has full context
+      const history = get().history
+      const projectRoot = await platform.getProjectRoot().catch(() => '')
       try {
-        await get().sendMessage(AGENT_MESSAGE_TYPES.AGENT_QUERY, { prompt })
+        await get().sendMessage(AGENT_MESSAGE_TYPES.AGENT_QUERY, { prompt, history, projectRoot: projectRoot || undefined })
       } catch (err) {
         set({ status: 'error' })
         get().addAgentMessage({
@@ -156,6 +165,8 @@ export const useAgentStore = create<AgentState>((set, get) => {
             timestamp: new Date().toISOString(),
           },
         ],
+        // Append to LLM history
+        history: [...state.history, { role: 'user' as const, content }],
       }))
     },
 
@@ -174,11 +185,16 @@ export const useAgentStore = create<AgentState>((set, get) => {
             raw: message,
           },
         ],
+        // Only add successful agent replies to history
+        history: success
+          ? [...state.history, { role: 'assistant' as const, content }]
+          : state.history,
         status: 'idle',
       }))
     },
 
     setStatus: (status: AgentStatus) => set({ status }),
     setConnected: (isConnected: boolean) => set({ isConnected }),
+    clearHistory: () => set({ history: [], messages: [] }),
   }
 })
