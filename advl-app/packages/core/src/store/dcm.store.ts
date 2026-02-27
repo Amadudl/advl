@@ -70,11 +70,18 @@ export interface NavigationEdge {
   label: string
 }
 
+export type SelectedNodeType = 'screenNode' | 'useCaseNode' | 'functionNode' | 'dbTableNode' | null
+
 interface DCMState {
   dcm: DCM | null
   document: DCMDocument | null
   isLoading: boolean
   error: string | null
+
+  // Canvas node selection — UC-004
+  selectedNodeId: string | null
+  selectedNodeType: SelectedNodeType
+  selectedNodeData: Record<string, unknown> | null
 
   // File-based project actions
   loadDCM: (projectRoot: string) => Promise<void>
@@ -85,6 +92,7 @@ interface DCMState {
 
   // Canvas actions
   loadDocument: (doc: DCMDocument) => void
+  setSelectedNode: (id: string | null, type: SelectedNodeType, data: Record<string, unknown> | null) => void
 
   // Canvas selectors
   getScreens: () => ScreenElement[]
@@ -97,6 +105,9 @@ export const useDCMStore = create<DCMState>((set, get) => ({
   document: null,
   isLoading: false,
   error: null,
+  selectedNodeId: null,
+  selectedNodeType: null,
+  selectedNodeData: null,
 
   loadDCM: async (projectRoot: string) => {
     set({ isLoading: true, error: null })
@@ -144,6 +155,8 @@ export const useDCMStore = create<DCMState>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadDocument: (doc: DCMDocument) => set({ document: doc, error: null }),
+
+  setSelectedNode: (id, type, data) => set({ selectedNodeId: id, selectedNodeType: type, selectedNodeData: data }),
 
   getScreens: () => {
     const doc = get().document

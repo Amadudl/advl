@@ -16,6 +16,8 @@ import { CanvasShell } from './features/canvas/CanvasShell'
 import { WorkspaceFeature } from './features/workspace'
 import { DCMViewerFeature } from './features/dcm-viewer'
 import { AgentChatFeature } from './features/agent-chat'
+import { InspectorPanel } from './features/inspector'
+import { UseCaseEditorFeature } from './features/use-case-editor'
 import type { DCMDocument } from '@advl/shared'
 
 const DEV_DCM: DCMDocument = {
@@ -121,13 +123,16 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Left panel — Workspace + DCM viewer */}
+      {/* Left panel — Workspace + DCM viewer + Use Case Editor */}
       <aside className="w-56 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
-        <div className="flex-1 overflow-y-auto border-b border-gray-800">
+        <div className="shrink-0 border-b border-gray-800">
           <WorkspaceFeature />
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="shrink-0 border-b border-gray-800 max-h-40 overflow-y-auto">
           <DCMViewerFeature />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <UseCaseEditorFeature />
         </div>
       </aside>
 
@@ -136,13 +141,13 @@ export default function App() {
         <CanvasShell />
       </main>
 
-      {/* Right inspector panel */}
-      <aside className="w-60 border-l border-gray-800 bg-gray-900 shrink-0 flex flex-col">
-        <div className="px-3 py-2 border-b border-gray-800">
-          <div className="text-xs text-gray-500 uppercase tracking-wider">Inspector</div>
+      {/* Right inspector panel — UC-004 */}
+      <aside className="w-64 border-l border-gray-800 bg-gray-900 shrink-0 flex flex-col overflow-hidden">
+        <div className="px-3 py-2 border-b border-gray-800 shrink-0">
+          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Inspector</div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="p-3 text-xs text-gray-600 italic">Select a node to inspect</div>
+          <InspectorPanel />
         </div>
       </aside>
 

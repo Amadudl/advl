@@ -293,7 +293,7 @@ use_cases:
   - id: "UC-004"
     title: "User inspects detailed element metadata via canvas selection"
     value: "Provides deep traceability (code file, line numbers, assigned rulebooks) directly from the visual layer without requiring context switching."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-CanvasNode-Inspector"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
@@ -301,8 +301,43 @@ use_cases:
       - "Node is clicked"
     postconditions:
       - "Right-hand inspector panel populates with full 'advl_meta' linked properties associated with the entity selected"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "InspectorPanel"
+        file: "packages/core/src/features/inspector/index.tsx"
+        line: 145
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "setSelectedNode"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 159
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "onNodeClick (UserFlowCanvas)"
+        file: "packages/core/src/features/canvas/UserFlowCanvas.tsx"
+        line: 64
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "onNodeClick (DCMArchCanvas)"
+        file: "packages/core/src/features/canvas/UserFlowCanvas.tsx"
+        line: 160
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
@@ -328,7 +363,7 @@ use_cases:
   - id: "UC-006"
     title: "User translates a requirement into a structured Use Case via UI"
     value: "Forces the user to think in business value and structured outcomes before any code is written, ensuring USE_CASE_FIRST compliance."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-UseCaseEditor-Submit"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
@@ -336,8 +371,43 @@ use_cases:
     postconditions:
       - "A new Use Case is appended to the DCM in 'planned' status"
       - "The canvas updates to reflect the new Use Case node"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "UseCaseEditorFeature"
+        file: "packages/core/src/features/use-case-editor/index.tsx"
+        line: 100
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "ArrayField"
+        file: "packages/core/src/features/use-case-editor/index.tsx"
+        line: 35
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "buildDescription"
+        file: "packages/core/src/features/use-case-editor/index.tsx"
+        line: 114
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "submitUseCase"
+        file: "packages/core/src/store/agent.store.ts"
+        line: 97
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null

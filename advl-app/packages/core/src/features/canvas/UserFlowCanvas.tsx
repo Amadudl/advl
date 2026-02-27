@@ -37,7 +37,7 @@ const DCM_NODE_TYPES = {
 }
 
 export function UserFlowCanvas() {
-  const { document: dcm, getScreens, getNavigationEdges, getUseCasesForScreen } = useDCMStore()
+  const { document: dcm, getScreens, getNavigationEdges, getUseCasesForScreen, setSelectedNode } = useDCMStore()
 
   const { initialNodes, initialEdges } = useMemo(() => {
     const screens = getScreens()
@@ -59,6 +59,17 @@ export function UserFlowCanvas() {
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges],
+  )
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: { id: string; type?: string; data: unknown }) => {
+      setSelectedNode(
+        node.id,
+        (node.type ?? null) as import('../../store/dcm.store').SelectedNodeType,
+        node.data as Record<string, unknown>,
+      )
+    },
+    [setSelectedNode],
   )
 
   if (!dcm) {
@@ -92,6 +103,7 @@ export function UserFlowCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
         nodeTypes={SCREEN_NODE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.15 }}
@@ -129,7 +141,7 @@ export function UserFlowCanvas() {
  * advl_meta: { use_case_id: "UC-002", visual_element_id: "VE-Canvas-Flow" }
  */
 export function DCMArchCanvas() {
-  const { document: dcm } = useDCMStore()
+  const { document: dcm, setSelectedNode } = useDCMStore()
 
   const { initialNodes, initialEdges } = useMemo(() => {
     if (!dcm) return { initialNodes: [], initialEdges: [] }
@@ -143,6 +155,17 @@ export function DCMArchCanvas() {
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
     [setEdges],
+  )
+
+  const onNodeClick = useCallback(
+    (_: React.MouseEvent, node: { id: string; type?: string; data: unknown }) => {
+      setSelectedNode(
+        node.id,
+        (node.type ?? null) as import('../../store/dcm.store').SelectedNodeType,
+        node.data as Record<string, unknown>,
+      )
+    },
+    [setSelectedNode],
   )
 
   if (!dcm) {
@@ -179,6 +202,7 @@ export function DCMArchCanvas() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodeClick={onNodeClick}
         nodeTypes={DCM_NODE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.15 }}
