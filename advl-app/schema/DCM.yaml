@@ -31,7 +31,7 @@ use_cases:
   - id: "UC-001"
     title: "User opens an ADVL workspace directory"
     value: "Establishes contextual project foundation (DCM file access) to enable visual rendering and agent-assisted development architecture."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-Workspace-Open"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
@@ -39,8 +39,75 @@ use_cases:
     postconditions:
       - "Project DCM is parsed into memory/Zustand store"
       - "File system access is granted for relative path resolution"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "openProjectDialog"
+        file: "packages/core/src/store/workspace.store.ts"
+        line: 29
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "openProject"
+        file: "packages/core/src/store/workspace.store.ts"
+        line: 46
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "closeProject"
+        file: "packages/core/src/store/workspace.store.ts"
+        line: 59
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "readDCM"
+        file: "packages/core/src/services/dcm.service.ts"
+        line: 17
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "loadDCM"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 96
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "dcmToDCMDocument"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 27
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "openFolderDialog"
+        file: "packages/core/src/platform/adapter.browser.ts"
+        line: 94
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "openFolderDialog"
+        file: "packages/core/src/platform/adapter.electron.ts"
+        line: 51
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
@@ -48,7 +115,7 @@ use_cases:
   - id: "UC-002"
     title: "System renders DCM elements as interactive flow canvas"
     value: "Transforms static YAML architecture into a living, visual 2D diagram, enabling humans to comprehend complex data and component flows instantly."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-Canvas-Flow"
     actor: "System"
     preconditions:
@@ -56,8 +123,99 @@ use_cases:
     postconditions:
       - "React Flow canvas displays nodes for Use Cases, Functions, and Database Tables"
       - "Edges correctly map relationships (e.g., Use Case -> Function -> DB Table)"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "buildDCMGraph"
+        file: "packages/core/src/features/canvas/utils/dcm-to-flow.ts"
+        line: 92
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "buildScreenFlowGraph"
+        file: "packages/core/src/features/canvas/utils/dcm-to-flow.ts"
+        line: 38
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "DCMArchCanvas"
+        file: "packages/core/src/features/canvas/UserFlowCanvas.tsx"
+        line: 131
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "UserFlowCanvas"
+        file: "packages/core/src/features/canvas/UserFlowCanvas.tsx"
+        line: 39
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "ScreenNode"
+        file: "packages/core/src/features/canvas/nodes/ScreenNode.tsx"
+        line: 19
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "UseCaseNode"
+        file: "packages/core/src/features/canvas/nodes/UseCaseNode.tsx"
+        line: 25
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "FunctionNode"
+        file: "packages/core/src/features/canvas/nodes/FunctionNode.tsx"
+        line: 18
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "DbTableNode"
+        file: "packages/core/src/features/canvas/nodes/DbTableNode.tsx"
+        line: 15
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "getNavigationEdges"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 151
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "getScreens"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 139
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "loadDocument"
+        file: "packages/core/src/store/dcm.store.ts"
+        line: 137
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null

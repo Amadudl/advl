@@ -16,6 +16,51 @@ import { create } from 'zustand'
 import type { DCM, DCMDocument, UseCase, ScreenElement } from '@advl/shared'
 import { dcmService } from '../services/dcm.service'
 
+/**
+ * Convert a DCM (disk YAML format) into a DCMDocument (canvas format).
+ *
+ * ScreenElements are derived from the unique visual_element_id values on
+ * use cases, so the canvas works even when no explicit visual_elements
+ * section exists in the YAML. If the DCM gains a native visual_elements
+ * field it takes precedence.
+ */
+function dcmToDCMDocument(dcm: DCM): DCMDocument {
+  const nativeElements = (dcm as DCM & { visual_elements?: ScreenElement[] }).visual_elements
+
+  let screenElements: ScreenElement[]
+
+  if (nativeElements && nativeElements.length > 0) {
+    screenElements = nativeElements
+  } else {
+    const seen = new Set<string>()
+    screenElements = []
+    for (const uc of dcm.use_cases) {
+      const vid = uc.visual_element_id
+      if (vid && vid !== 'pending' && !seen.has(vid)) {
+        seen.add(vid)
+        screenElements.push({
+          id: vid,
+          type: 'screen',
+          name: vid.replace(/^(screen_|ve_|ve-)/i, '').replace(/_/g, ' '),
+          route: undefined,
+        })
+      }
+    }
+  }
+
+  return {
+    version: dcm.version,
+    project: dcm.project,
+    description: dcm.description,
+    use_cases: dcm.use_cases,
+    visual_elements: screenElements,
+    stack: dcm.stack,
+    adrs: dcm.adrs,
+    deprecated: dcm.deprecated,
+    snapshots: dcm.snapshots,
+  }
+}
+
 export interface NavigationEdge {
   id: string
   sourceScreenId: string
@@ -57,7 +102,8 @@ export const useDCMStore = create<DCMState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const dcm = await dcmService.readDCM(projectRoot)
-      set({ dcm, isLoading: false })
+      const doc = dcmToDCMDocument(dcm)
+      set({ dcm, document: doc, isLoading: false })
     } catch (err) {
       set({ error: String(err), isLoading: false })
     }

@@ -25,12 +25,17 @@ export class BrowserAdapter implements IPlatformAdapter {
     this.initWebSocket()
   }
 
+  private reconnectDelay = 1000
+
   private initWebSocket(): void {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}${AGENT_WS_PATH}`
 
-    // TODO: Add reconnection logic with exponential backoff
     this.ws = new WebSocket(wsUrl)
+
+    this.ws.onopen = () => {
+      this.reconnectDelay = 1000
+    }
 
     this.ws.onmessage = (event: MessageEvent) => {
       try {
@@ -45,11 +50,15 @@ export class BrowserAdapter implements IPlatformAdapter {
       console.error('[BrowserAdapter] WebSocket error:', error)
     }
 
-    // TODO: Handle ws.onclose — trigger reconnect or show disconnected state in UI
+    this.ws.onclose = () => {
+      setTimeout(() => {
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
+        this.initWebSocket()
+      }, this.reconnectDelay)
+    }
   }
 
   async readFile(path: string): Promise<string> {
-    // TODO: Implement — POST /api/filesystem/read, return response body as string
     const response = await fetch('/api/filesystem/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -60,7 +69,6 @@ export class BrowserAdapter implements IPlatformAdapter {
   }
 
   async writeFile(path: string, content: string): Promise<void> {
-    // TODO: Implement — POST /api/filesystem/write
     const response = await fetch('/api/filesystem/write', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,14 +78,12 @@ export class BrowserAdapter implements IPlatformAdapter {
   }
 
   async readDir(path: string): Promise<string[]> {
-    // TODO: Implement — GET /api/filesystem/dir?path=...
     const response = await fetch(`/api/filesystem/dir?path=${encodeURIComponent(path)}`)
     if (!response.ok) throw new Error(`readDir failed: ${response.statusText}`)
     return response.json() as Promise<string[]>
   }
 
   async exists(path: string): Promise<boolean> {
-    // TODO: Implement — GET /api/filesystem/exists?path=...
     const response = await fetch(`/api/filesystem/exists?path=${encodeURIComponent(path)}`)
     if (!response.ok) return false
     const data = await response.json() as { exists: boolean }
@@ -85,15 +91,12 @@ export class BrowserAdapter implements IPlatformAdapter {
   }
 
   async openFolderDialog(): Promise<string | null> {
-    // TODO: Browser has no native folder picker for arbitrary paths.
-    // In server mode, this should show a path input dialog instead.
-    // For now: prompt the user for a server-side path.
     const path = window.prompt('Enter project folder path on the server:')
-    return path ?? null
+    if (path) this.projectRoot = path.trim()
+    return path ? path.trim() : null
   }
 
   async getProjectRoot(): Promise<string> {
-    // TODO: Implement — fetch from server session or local storage
     return this.projectRoot
   }
 

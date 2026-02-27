@@ -24,6 +24,19 @@ export function WorkspaceFeature() {
 
       {!project ? (
         <button
+          data-advl-meta={JSON.stringify({
+            use_case_id: 'UC-001',
+            use_case_title: 'User opens an ADVL workspace directory',
+            function: 'openProjectDialog',
+            file: 'packages/core/src/store/workspace.store.ts',
+            line: 29,
+            endpoint: null,
+            db_tables: [],
+            auth_required: false,
+            last_verified: '2026-02-27',
+            dcm_version: '1.0',
+            visual_element_id: 'VE-Workspace-Open',
+          })}
           onClick={() => { void openProjectDialog() }}
           disabled={isLoading}
           className="text-xs bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors"
@@ -37,6 +50,19 @@ export function WorkspaceFeature() {
               {project.name}
             </div>
             <button
+              data-advl-meta={JSON.stringify({
+                use_case_id: 'UC-001',
+                use_case_title: 'User opens an ADVL workspace directory',
+                function: 'closeProject',
+                file: 'packages/core/src/store/workspace.store.ts',
+                line: 59,
+                endpoint: null,
+                db_tables: [],
+                auth_required: false,
+                last_verified: '2026-02-27',
+                dcm_version: '1.0',
+                visual_element_id: 'VE-Workspace-Open',
+              })}
               onClick={closeProject}
               className="text-xs text-gray-600 hover:text-red-400 ml-2"
               title="Close project"

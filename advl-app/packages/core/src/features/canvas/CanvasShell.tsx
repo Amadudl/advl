@@ -5,7 +5,7 @@
  * Layer 1 (Data Flow) and Layer 3 (UI / 2D) are registered but not yet implemented.
  */
 import { useState } from 'react'
-import { UserFlowCanvas } from './UserFlowCanvas'
+import { UserFlowCanvas, DCMArchCanvas } from './UserFlowCanvas'
 
 type Layer = 'user-flow' | 'data-flow' | 'ui-2d'
 
@@ -18,7 +18,7 @@ interface LayerConfig {
 
 const LAYERS: LayerConfig[] = [
   { id: 'user-flow', label: 'User Flow', icon: '🗺️', available: true },
-  { id: 'data-flow', label: 'Data Flow', icon: '🔗', available: false },
+  { id: 'data-flow', label: 'DCM Graph', icon: '🔗', available: true },
   { id: 'ui-2d', label: 'UI / 2D', icon: '🎨', available: false },
 ]
 
@@ -54,15 +54,7 @@ export function CanvasShell() {
 
       <div className="flex-1 overflow-hidden">
         {activeLayer === 'user-flow' && <UserFlowCanvas />}
-        {activeLayer === 'data-flow' && (
-          <div className="flex items-center justify-center h-full text-gray-600">
-            <div className="text-center">
-              <div className="text-4xl mb-2">🔗</div>
-              <div className="text-sm">Layer 1 — Data Flow</div>
-              <div className="text-xs text-gray-700 mt-1">DB Tables · Endpoints · Functions</div>
-            </div>
-          </div>
-        )}
+        {activeLayer === 'data-flow' && <DCMArchCanvas />}
         {activeLayer === 'ui-2d' && (
           <div className="flex items-center justify-center h-full text-gray-600">
             <div className="text-center">
