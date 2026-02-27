@@ -17,6 +17,7 @@ import type { UseCaseNodeData } from '../canvas/nodes/UseCaseNode'
 import type { FunctionNodeData } from '../canvas/nodes/FunctionNode'
 import type { DbTableNodeData } from '../canvas/nodes/DbTableNode'
 import type { ScreenNodeData } from '../canvas/utils/dcm-to-flow'
+import { BindMetaPanel } from './BindMetaPanel'
 
 const UC004_META = {
   use_case_id: 'UC-004',
@@ -216,10 +217,22 @@ export function InspectorPanel() {
           />
         )}
         {selectedNodeType === 'useCaseNode' && (
-          <UseCaseInspector data={selectedNodeData as unknown as UseCaseNodeData} />
+          <>
+            <UseCaseInspector data={selectedNodeData as unknown as UseCaseNodeData} />
+            <BindMetaPanel
+              nodeType="useCaseNode"
+              nodeData={selectedNodeData as unknown as UseCaseNodeData}
+            />
+          </>
         )}
         {selectedNodeType === 'functionNode' && (
-          <FunctionInspector data={selectedNodeData as unknown as FunctionNodeData} />
+          <>
+            <FunctionInspector data={selectedNodeData as unknown as FunctionNodeData} />
+            <BindMetaPanel
+              nodeType="functionNode"
+              nodeData={selectedNodeData as unknown as FunctionNodeData}
+            />
+          </>
         )}
         {selectedNodeType === 'dbTableNode' && (
           <DbTableInspector data={selectedNodeData as unknown as DbTableNodeData} />

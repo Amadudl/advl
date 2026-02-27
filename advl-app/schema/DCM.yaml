@@ -581,16 +581,52 @@ use_cases:
   - id: "UC-009"
     title: "User injects advl_meta into a visual component via Canvas/IDE"
     value: "Creates the unbreakable, machine-readable bond between the visual UI surface and the backend logic, guaranteeing accurate traceability."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-MetaInjector-Bind"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
-      - "A valid React/UI component exists"
-      - "A target function is registered in the DCM"
+      - "A canvas node (useCaseNode or functionNode) is selected"
+      - "A valid React/UI component or HTML element exists in the target file"
     postconditions:
-      - "The component source file is updated with the advl_meta JSON block"
-    functions: []
-    rules_applied: []
+      - "The target source file has data-advl-meta injected on the specified element"
+      - "Any pre-existing data-advl-meta on that element is replaced, not duplicated"
+    functions:
+      - name: "injectMeta"
+        file: "packages/core/src/services/meta-injector.service.ts"
+        line: 128
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "BindMetaPanel"
+        file: "packages/core/src/features/inspector/BindMetaPanel.tsx"
+        line: 101
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "findTagLineIndex"
+        file: "packages/core/src/services/meta-injector.service.ts"
+        line: 99
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "injectAttrIntoLine"
+        file: "packages/core/src/services/meta-injector.service.ts"
+        line: 82
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
