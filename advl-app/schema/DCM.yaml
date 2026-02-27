@@ -345,7 +345,7 @@ use_cases:
   - id: "UC-005"
     title: "User initializes a new ADVL project from a template"
     value: "Allows developers to go from zero to a fully configured, rule-compliant architecture in minutes, eliminating the infinite foundation tax."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-ProjectInit-Submit"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
@@ -354,8 +354,36 @@ use_cases:
     postconditions:
       - "Project skeleton is generated"
       - "A clean DCM.yaml is initialized corresponding to the stack choice"
-    functions: []
-    rules_applied: []
+      - "Project is automatically opened in workspace.store"
+    functions:
+      - name: "ProjectInitFeature"
+        file: "packages/core/src/features/project-init/index.tsx"
+        line: 54
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "initProject"
+        file: "packages/core/src/services/project.service.ts"
+        line: 70
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "STACK_TEMPLATES"
+        file: "packages/shared/src/constants/advl.constants.ts"
+        line: 10
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
@@ -492,7 +520,7 @@ use_cases:
   - id: "UC-008"
     title: "System validates project compliance against ADVL Rulebooks"
     value: "Prevents technical debt and drift by continuously verifying NO_FAKE, NO_DUPLICATE, and META_INJECTION compliance before any commits."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-Compliance-Runner"
     actor: "System"
     preconditions:
@@ -500,8 +528,52 @@ use_cases:
     postconditions:
       - "DCM and codebase are scanned"
       - "Violations (ghost logic, missing meta, empty stubs) are surfaced in the UI"
-    functions: []
-    rules_applied: []
+      - "Results grouped by rule shown in ComplianceDashboard"
+    functions:
+      - name: "ComplianceDashboard"
+        file: "packages/core/src/features/compliance/index.tsx"
+        line: 103
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "runComplianceChecks"
+        file: "packages/core/src/services/compliance.engine.ts"
+        line: 242
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "checkTopLevelMetadata"
+        file: "packages/core/src/services/compliance.engine.ts"
+        line: 68
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "checkFunctionDuplication"
+        file: "packages/core/src/services/compliance.engine.ts"
+        line: 118
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "checkNoFakeCompliance"
+        file: "packages/core/src/services/compliance.engine.ts"
+        line: 197
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null

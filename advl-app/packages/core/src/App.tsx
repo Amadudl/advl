@@ -18,7 +18,11 @@ import { DCMViewerFeature } from './features/dcm-viewer'
 import { AgentChatFeature } from './features/agent-chat'
 import { InspectorPanel } from './features/inspector'
 import { UseCaseEditorFeature } from './features/use-case-editor'
+import { ProjectInitFeature } from './features/project-init'
+import { ComplianceDashboard } from './features/compliance'
+import { useState } from 'react'
 import type { DCMDocument } from '@advl/shared'
+
 
 const DEV_DCM: DCMDocument = {
   version: '1.0',
@@ -100,8 +104,13 @@ const DEV_DCM: DCMDocument = {
 
 const platformInfo = platform.getPlatformInfo()
 
+type LeftTab = 'workspace' | 'init'
+type RightTab = 'inspector' | 'compliance'
+
 export default function App() {
   const { loadDocument, document: dcm } = useDCMStore()
+  const [leftTab, setLeftTab] = useState<LeftTab>('workspace')
+  const [rightTab, setRightTab] = useState<RightTab>('inspector')
 
   useEffect(() => {
     if (!dcm) {
@@ -123,17 +132,44 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Left panel — Workspace + DCM viewer + Use Case Editor */}
+      {/* Left panel — tabbed: Workspace / Init Project */}
       <aside className="w-56 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
-        <div className="shrink-0 border-b border-gray-800">
-          <WorkspaceFeature />
+        <div className="flex border-b border-gray-800 shrink-0">
+          <button
+            onClick={() => setLeftTab('workspace')}
+            className={`flex-1 text-[10px] uppercase tracking-wider py-2 font-semibold transition-colors ${
+              leftTab === 'workspace' ? 'text-white border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-400'
+            }`}
+          >
+            Workspace
+          </button>
+          <button
+            onClick={() => setLeftTab('init')}
+            className={`flex-1 text-[10px] uppercase tracking-wider py-2 font-semibold transition-colors ${
+              leftTab === 'init' ? 'text-white border-b-2 border-indigo-600' : 'text-gray-600 hover:text-gray-400'
+            }`}
+          >
+            Init
+          </button>
         </div>
-        <div className="shrink-0 border-b border-gray-800 max-h-40 overflow-y-auto">
-          <DCMViewerFeature />
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <UseCaseEditorFeature />
-        </div>
+        {leftTab === 'workspace' && (
+          <>
+            <div className="shrink-0 border-b border-gray-800">
+              <WorkspaceFeature />
+            </div>
+            <div className="shrink-0 border-b border-gray-800 max-h-40 overflow-y-auto">
+              <DCMViewerFeature />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <UseCaseEditorFeature />
+            </div>
+          </>
+        )}
+        {leftTab === 'init' && (
+          <div className="flex-1 overflow-y-auto">
+            <ProjectInitFeature />
+          </div>
+        )}
       </aside>
 
       {/* Main canvas */}
@@ -141,13 +177,28 @@ export default function App() {
         <CanvasShell />
       </main>
 
-      {/* Right inspector panel — UC-004 */}
+      {/* Right panel — tabbed: Inspector / Compliance */}
       <aside className="w-64 border-l border-gray-800 bg-gray-900 shrink-0 flex flex-col overflow-hidden">
-        <div className="px-3 py-2 border-b border-gray-800 shrink-0">
-          <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Inspector</div>
+        <div className="flex border-b border-gray-800 shrink-0">
+          <button
+            onClick={() => setRightTab('inspector')}
+            className={`flex-1 text-[10px] uppercase tracking-wider py-2 font-semibold transition-colors ${
+              rightTab === 'inspector' ? 'text-white border-b-2 border-blue-600' : 'text-gray-600 hover:text-gray-400'
+            }`}
+          >
+            Inspector
+          </button>
+          <button
+            onClick={() => setRightTab('compliance')}
+            className={`flex-1 text-[10px] uppercase tracking-wider py-2 font-semibold transition-colors ${
+              rightTab === 'compliance' ? 'text-white border-b-2 border-violet-600' : 'text-gray-600 hover:text-gray-400'
+            }`}
+          >
+            Compliance
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <InspectorPanel />
+          {rightTab === 'inspector' ? <InspectorPanel /> : <ComplianceDashboard />}
         </div>
       </aside>
 

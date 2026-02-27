@@ -1,4 +1,4 @@
-# ADVL — AI Development Visual Language
+# ADVL — AI Development Visual Language (artwork, research project, not for use in production)
 
 > **Zero to production in under an hour. Zero entropy. Forever.**
 
