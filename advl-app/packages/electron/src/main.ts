@@ -56,6 +56,8 @@ function startAgent(): void {
   })
 }
 
+// Top-level await is unavailable in this CJS package (module: Node16, no "type":"module").
+// .then() is the correct pattern here — not a code smell in this context.
 app.whenReady().then(() => {
   registerIpcHandlers()
   startAgent()

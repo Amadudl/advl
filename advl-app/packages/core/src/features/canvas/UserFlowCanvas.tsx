@@ -194,6 +194,12 @@ export function DCMArchCanvas() {
   const fnCount = nodes.filter((n) => n.type === 'functionNode').length
   const tableCount = nodes.filter((n) => n.type === 'dbTableNode').length
 
+  function nodeColorFn(node: { type?: string }): string {
+    if (node.type === 'useCaseNode') return '#818cf8'
+    if (node.type === 'functionNode') return '#a78bfa'
+    return '#34d399'
+  }
+
   return (
     <div className="w-full h-full bg-gray-950">
       <ReactFlow
@@ -212,11 +218,7 @@ export function DCMArchCanvas() {
         <Controls className="!bg-gray-800 !border-gray-700 !shadow-xl" />
         <MiniMap
           className="!bg-gray-900 !border-gray-700"
-          nodeColor={(node) =>
-            node.type === 'useCaseNode' ? '#818cf8'
-            : node.type === 'functionNode' ? '#a78bfa'
-            : '#34d399'
-          }
+          nodeColor={nodeColorFn}
           maskColor="rgba(0,0,0,0.6)"
         />
         <div className="absolute top-3 left-3 z-10 flex items-center gap-2

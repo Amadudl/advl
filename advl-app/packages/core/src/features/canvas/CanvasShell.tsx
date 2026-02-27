@@ -22,6 +22,12 @@ const LAYERS: LayerConfig[] = [
   { id: 'ui-2d', label: 'UI / 2D', icon: '🎨', available: false },
 ]
 
+function layerBtnClass(layer: LayerConfig, activeLayer: Layer): string {
+  if (activeLayer === layer.id) return 'bg-indigo-900 text-indigo-200 border border-indigo-500/50'
+  if (layer.available) return 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+  return 'text-gray-600 cursor-not-allowed'
+}
+
 export function CanvasShell() {
   const [activeLayer, setActiveLayer] = useState<Layer>('user-flow')
 
@@ -33,15 +39,7 @@ export function CanvasShell() {
             key={layer.id}
             onClick={() => { if (layer.available) setActiveLayer(layer.id) }}
             disabled={!layer.available}
-            className={[
-              'flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium',
-              'transition-colors duration-100',
-              activeLayer === layer.id
-                ? 'bg-indigo-900 text-indigo-200 border border-indigo-500/50'
-                : layer.available
-                  ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
-                  : 'text-gray-600 cursor-not-allowed',
-            ].join(' ')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors duration-100 ${layerBtnClass(layer, activeLayer)}`}
           >
             <span>{layer.icon}</span>
             <span>{layer.label}</span>

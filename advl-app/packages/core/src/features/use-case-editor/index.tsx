@@ -174,10 +174,11 @@ export function UseCaseEditorFeature() {
       {project && !submitted && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+            <label htmlFor="uce-title" className="text-[10px] text-gray-600 uppercase tracking-wider">
               Title <span className="text-red-500">*</span>
             </label>
             <input
+              id="uce-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -188,10 +189,11 @@ export function UseCaseEditorFeature() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+            <label htmlFor="uce-value" className="text-[10px] text-gray-600 uppercase tracking-wider">
               Business Value <span className="text-red-500">*</span>
             </label>
             <textarea
+              id="uce-value"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               disabled={isThinking}
@@ -202,10 +204,11 @@ export function UseCaseEditorFeature() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+            <label htmlFor="uce-actor" className="text-[10px] text-gray-600 uppercase tracking-wider">
               Actor <span className="text-red-500">*</span>
             </label>
             <input
+              id="uce-actor"
               type="text"
               value={actor}
               onChange={(e) => setActor(e.target.value)}

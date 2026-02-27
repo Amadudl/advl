@@ -52,43 +52,54 @@ function buildMetaAttrNode(meta: Record<string, unknown>): string {
   return `data-advl-meta='${JSON.stringify(meta)}'`
 }
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function findTargetLineByDirectTag(lines: string[], componentName: string): number {
+  const directTag = new RegExp(`<${escapeRe(componentName)}[\\s/>]`)
+  for (let i = 0; i < lines.length; i++) {
+    if (directTag.test(lines[i] ?? '')) return i
+  }
+  return -1
+}
+
+function findTargetLineByFnDecl(lines: string[], componentName: string): number {
+  const fnDecl = new RegExp(
+    `(?:function\\s+${escapeRe(componentName)}|(?:const|let|var)\\s+${escapeRe(componentName)}\\s*=)`,
+  )
+  for (let i = 0; i < lines.length; i++) {
+    if (!fnDecl.test(lines[i] ?? '')) continue
+    for (let j = i + 1; j < lines.length && j < i + 80; j++) {
+      if (/<[A-Za-z]/.test(lines[j] ?? '')) return j
+    }
+  }
+  return -1
+}
+
+function applyMetaAttrToLine(line: string, componentName: string, metaAttr: string): string {
+  const cleaned = line.replace(/\s*data-advl-meta=(?:'[^']*'|"[^"]*"|\{[^}]*\})/g, '')
+  const tagMatch = cleaned.match(/<([A-Za-z][A-Za-z0-9.]*)/)
+  const tagName = tagMatch?.[1] ?? componentName
+  const tagPat = new RegExp(`(<${escapeRe(tagName)})([ \t>])`)
+  return cleaned.replace(tagPat, `$1 ${metaAttr}$2`)
+}
+
 function injectMetaIntoContent(
   content: string,
   componentName: string,
   metaAttr: string,
 ): { result: string; found: boolean; line: number } {
   const lines = content.split('\n')
-  const directTag = new RegExp(`<${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s/>]`)
-  const fnDecl = new RegExp(
-    `(?:function\\s+${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|` +
-    `(?:const|let|var)\\s+${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=)`,
-  )
 
-  let targetLineIdx = -1
-  for (let i = 0; i < lines.length; i++) {
-    if (directTag.test(lines[i] ?? '')) { targetLineIdx = i; break }
-  }
+  let targetLineIdx = findTargetLineByDirectTag(lines, componentName)
   if (targetLineIdx === -1) {
-    for (let i = 0; i < lines.length; i++) {
-      if (fnDecl.test(lines[i] ?? '')) {
-        for (let j = i + 1; j < lines.length && j < i + 80; j++) {
-          if (/<[A-Za-z]/.test(lines[j] ?? '')) { targetLineIdx = j; break }
-        }
-        if (targetLineIdx !== -1) break
-      }
-    }
+    targetLineIdx = findTargetLineByFnDecl(lines, componentName)
   }
 
   if (targetLineIdx === -1) return { result: content, found: false, line: -1 }
 
-  const original = lines[targetLineIdx] ?? ''
-  const cleaned = original.replace(/\s*data-advl-meta=(?:'[^']*'|"[^"]*"|\{[^}]*\})/g, '')
-  const tagMatch = cleaned.match(/<([A-Za-z][A-Za-z0-9.]*)/)
-  const tagName = tagMatch?.[1] ?? componentName
-  const tagPat = new RegExp(`(<${tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})([ \t>])`)
-  const injected = cleaned.replace(tagPat, `$1 ${metaAttr}$2`)
-  lines[targetLineIdx] = injected
-
+  lines[targetLineIdx] = applyMetaAttrToLine(lines[targetLineIdx] ?? '', componentName, metaAttr)
   return { result: lines.join('\n'), found: true, line: targetLineIdx + 1 }
 }
 

@@ -159,9 +159,9 @@ export function ProjectInitFeature() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+        <div className="text-[10px] text-gray-600 uppercase tracking-wider">
           Stack Template <span className="text-red-500">*</span>
-        </label>
+        </div>
         <div className="flex flex-col gap-1">
           {TEMPLATE_IDS.map((id) => {
             const tpl = STACK_TEMPLATES[id]

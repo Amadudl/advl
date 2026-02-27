@@ -85,7 +85,7 @@ export function WorkspaceFeature() {
             {project.hasExistingDCM ? '✓ DCM found' : '⚠ No DCM.yaml'}
           </div>
 
-          {dcm && dcm.use_cases.length > 0 ? (
+          {dcm && dcm.use_cases.length > 0 && (
             <div className="flex flex-col gap-1">
               <div className="text-xs text-gray-500 uppercase tracking-wider">Use Cases</div>
               {dcm.use_cases.map((uc) => (
@@ -101,9 +101,10 @@ export function WorkspaceFeature() {
                 </div>
               ))}
             </div>
-          ) : dcm ? (
+          )}
+          {dcm?.use_cases.length === 0 && (
             <div className="text-xs text-gray-600 italic">No use cases registered</div>
-          ) : null}
+          )}
         </>
       )}
     </div>

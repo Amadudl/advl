@@ -117,7 +117,7 @@ export function ComplianceDashboard() {
 
   const errorGroups = report ? groupByRule(report.errors) : new Map()
   const warnGroups = report ? groupByRule(report.warnings) : new Map()
-  const allClear = report && report.errors.length === 0 && report.warnings.length === 0
+  const allClear = report?.errors.length === 0 && report?.warnings.length === 0
   const ran = new Date(report?.ranAt ?? '').toLocaleTimeString()
 
   return (

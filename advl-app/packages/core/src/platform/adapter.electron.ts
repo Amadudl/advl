@@ -26,7 +26,7 @@ declare global {
 }
 
 export class ElectronAdapter implements IPlatformAdapter {
-  private agentMessageCallbacks: Array<(message: AgentMessage) => void> = []
+  private readonly agentMessageCallbacks: Array<(message: AgentMessage) => void> = []
 
   constructor() {
     // Agent messages arrive via IPC — registered in onAgentMessage()

@@ -18,7 +18,7 @@ import type { IPlatformAdapter } from './adapter.interface'
 
 export class BrowserAdapter implements IPlatformAdapter {
   private ws: WebSocket | null = null
-  private agentMessageCallbacks: Array<(message: AgentMessage) => void> = []
+  private readonly agentMessageCallbacks: Array<(message: AgentMessage) => void> = []
   private projectRoot = ''
 
   constructor() {
@@ -101,7 +101,7 @@ export class BrowserAdapter implements IPlatformAdapter {
   }
 
   async sendToAgent(message: AgentMessage): Promise<void> {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
       throw new Error('[BrowserAdapter] WebSocket is not connected')
     }
     this.ws.send(JSON.stringify(message))

@@ -162,10 +162,11 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
 
       <form onSubmit={handleBind} className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">
+          <label htmlFor="bmp-file-path" className="text-[9px] text-gray-600 uppercase tracking-wider">
             File Path <span className="text-red-500">*</span>
           </label>
           <input
+            id="bmp-file-path"
             type="text"
             value={filePath}
             onChange={(e) => setFilePath(e.target.value)}
@@ -176,10 +177,11 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">
+          <label htmlFor="bmp-component-name" className="text-[9px] text-gray-600 uppercase tracking-wider">
             Component / Element Name <span className="text-red-500">*</span>
           </label>
           <input
+            id="bmp-component-name"
             type="text"
             value={componentName}
             onChange={(e) => setComponentName(e.target.value)}
@@ -190,10 +192,11 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">
+          <label htmlFor="bmp-uc-id" className="text-[9px] text-gray-600 uppercase tracking-wider">
             Use Case ID <span className="text-red-500">*</span>
           </label>
           <input
+            id="bmp-uc-id"
             type="text"
             value={ucId}
             onChange={(e) => setUcId(e.target.value)}
@@ -204,8 +207,9 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">UC Title</label>
+          <label htmlFor="bmp-uc-title" className="text-[9px] text-gray-600 uppercase tracking-wider">UC Title</label>
           <input
+            id="bmp-uc-title"
             type="text"
             value={ucTitle}
             onChange={(e) => setUcTitle(e.target.value)}
@@ -216,8 +220,9 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">Function Name</label>
+          <label htmlFor="bmp-fn-name" className="text-[9px] text-gray-600 uppercase tracking-wider">Function Name</label>
           <input
+            id="bmp-fn-name"
             type="text"
             value={fnName}
             onChange={(e) => setFnName(e.target.value)}
@@ -228,10 +233,11 @@ export function BindMetaPanel({ nodeType, nodeData }: BindMetaPanelProps) {
         </div>
 
         <div className="flex flex-col gap-0.5">
-          <label className="text-[9px] text-gray-600 uppercase tracking-wider">
+          <label htmlFor="bmp-ve-id" className="text-[9px] text-gray-600 uppercase tracking-wider">
             Visual Element ID <span className="text-red-500">*</span>
           </label>
           <input
+            id="bmp-ve-id"
             type="text"
             value={veId}
             onChange={(e) => setVeId(e.target.value)}

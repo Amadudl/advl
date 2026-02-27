@@ -35,12 +35,11 @@ const SCREEN_COLS = 4
 const SCREEN_COL_W = 280
 const SCREEN_ROW_H = 180
 
-export function buildScreenFlowGraph(
+function createScreenNodes(
   screens: ScreenElement[],
-  navEdges: NavigationEdge[],
   useCasesByScreen: Record<string, number>,
-): { nodes: Node<ScreenNodeData>[]; edges: Edge[] } {
-  const nodes: Node<ScreenNodeData>[] = screens.map((screen, index) => ({
+): Node<ScreenNodeData>[] {
+  return screens.map((screen, index) => ({
     id: screen.id,
     type: 'screenNode',
     position: {
@@ -55,8 +54,10 @@ export function buildScreenFlowGraph(
       status: 'implemented',
     },
   }))
+}
 
-  const edges: Edge[] = navEdges.map((e) => ({
+function createScreenEdges(navEdges: NavigationEdge[]): Edge[] {
+  return navEdges.map((e) => ({
     id: e.id,
     source: e.sourceScreenId,
     target: e.targetScreenId,
@@ -67,8 +68,17 @@ export function buildScreenFlowGraph(
     labelStyle: { fontSize: 11, fill: '#a5b4fc' },
     labelBgStyle: { fill: '#1e1b4b', fillOpacity: 0.85 },
   }))
+}
 
-  return { nodes, edges }
+export function buildScreenFlowGraph(
+  screens: ScreenElement[],
+  navEdges: NavigationEdge[],
+  useCasesByScreen: Record<string, number>,
+): { nodes: Node<ScreenNodeData>[]; edges: Edge[] } {
+  return {
+    nodes: createScreenNodes(screens, useCasesByScreen),
+    edges: createScreenEdges(navEdges),
+  }
 }
 
 // ── DCM architecture graph (UC + Function + DbTable) ─────────────────────────
