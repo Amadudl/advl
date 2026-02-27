@@ -13,6 +13,7 @@
  * UC-003 / VE-AgentChat-Submit
  */
 import { useRef, useEffect, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { useAgentStore } from '../../store/agent.store'
 
 const UC003_META = {
@@ -98,9 +99,32 @@ export function AgentChatFeature() {
           return (
             <div
               key={msg.id}
-              className={`text-xs rounded px-2 py-1.5 max-w-full whitespace-pre-wrap break-words ${bubbleClass}`}
+              className={`text-xs rounded px-2 py-1.5 max-w-full break-words ${bubbleClass}`}
             >
-              {msg.content}
+              {msg.role === 'agent' ? (
+                <ReactMarkdown
+                  components={{
+                    code: ({ className, children, ...props }) => {
+                      const isBlock = className?.includes('language-')
+                      return isBlock ? (
+                        <pre className="bg-gray-950 rounded p-2 mt-1 mb-1 overflow-x-auto text-[11px] leading-relaxed">
+                          <code className={className} {...props}>{children}</code>
+                        </pre>
+                      ) : (
+                        <code className="bg-gray-950 rounded px-1 font-mono" {...props}>{children}</code>
+                      )
+                    },
+                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                    ul: ({ children }) => <ul className="list-disc ml-4 mb-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal ml-4 mb-1">{children}</ol>,
+                    strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
           )
         })}
