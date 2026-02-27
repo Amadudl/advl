@@ -54,6 +54,12 @@ interface AgentState {
  * UC-003 / UC-007
  */
 function parseAgentResponse(message: AgentMessage): { content: string; success: boolean } {
+  // AGENT_ERROR — transport/infra level error from WS proxy
+  if (message.type === AGENT_MESSAGE_TYPES.AGENT_ERROR) {
+    const p = message.payload as { code?: string; message?: string } | undefined
+    return { content: `Agent error: ${p?.message ?? p?.code ?? 'Unknown error'}`, success: false }
+  }
+
   const payload = message.payload as AgentResponsePayload | undefined
 
   if (!payload) {
@@ -76,6 +82,12 @@ function parseAgentResponse(message: AgentMessage): { content: string; success: 
 
 export const useAgentStore = create<AgentState>((set, get) => {
   void platform.onAgentMessage((message: AgentMessage) => {
+    // Always reset status on any incoming message
+    if (message.type === AGENT_MESSAGE_TYPES.AGENT_STATUS) {
+      const p = message.payload as { status?: AgentStatus; message?: string }
+      if (p.status) get().setStatus(p.status as AgentStatus)
+      return
+    }
     get().addAgentMessage(message)
   })
 
