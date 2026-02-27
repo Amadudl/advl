@@ -133,7 +133,11 @@ export const IPC_CHANNELS = {
   READ_FILE: 'advl:read-file',
   WRITE_FILE: 'advl:write-file',
   READ_DIR: 'advl:read-dir',
+  READ_DIR_RICH: 'advl:read-dir-rich',
   EXISTS: 'advl:exists',
   OPEN_FOLDER_DIALOG: 'advl:open-folder-dialog',
   GET_PROJECT_ROOT: 'advl:get-project-root',
+  SET_PROJECT_ROOT: 'advl:set-project-root',
+  GET_FILESYSTEM_ROOTS: 'advl:get-filesystem-roots',
+  STAT: 'advl:stat',
 } as const

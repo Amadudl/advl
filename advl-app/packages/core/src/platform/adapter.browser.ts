@@ -1,119 +1,165 @@
 /**
  * adapter.browser.ts — Browser/Server platform adapter implementation
  *
- * Implements IPlatformAdapter using fetch (for filesystem ops) and WebSocket
- * (for agent communication). Used when ADVL is accessed via a browser —
- * either in server-hosted mode or as a future web-only deployment.
+ * Implements IPlatformAdapter using fetch (filesystem via Express /api/fs/*)
+ * and WebSocket (agent via /ws proxy).
  *
- * Filesystem operations are proxied through the Express server API:
- *   POST /api/filesystem/read
- *   POST /api/filesystem/write
- *   GET  /api/filesystem/dir
+ * openFolderDialog() triggers an in-app tree browser instead of the
+ * unavailable native OS dialog. Register the show-callback via
+ * registerInAppDialogCallback() from App.tsx before the first call.
  *
- * Agent communication goes through the WebSocket at /ws.
+ * Agent communication goes through the WebSocket at /ws (proxied to agent).
  */
 import type { AgentMessage, PlatformInfo } from '@advl/shared'
 import { AGENT_WS_PATH } from '@advl/shared'
-import type { IPlatformAdapter } from './adapter.interface'
+import type { IPlatformAdapter, DirEntry } from './adapter.interface'
 
-export class BrowserAdapter implements IPlatformAdapter {
-  private ws: WebSocket | null = null
-  private readonly agentMessageCallbacks: Array<(message: AgentMessage) => void> = []
-  private projectRoot = ''
+const PROJECT_ROOT_KEY = 'advl:projectRoot'
 
-  constructor() {
-    this.initWebSocket()
+// ── In-app folder dialog wiring ───────────────────────────────────────────────
+// App.tsx calls registerInAppDialogCallback() once on mount.
+// When openFolderDialog() is called, it invokes the callback to show the modal,
+// then waits for the user to either select a path or cancel.
+
+let _showInAppDialog: (() => void) | null = null
+let _inAppDialogResolve: ((path: string | null) => void) | null = null
+
+/** Called by App.tsx to register the function that opens the FileExplorer modal. */
+export function registerInAppDialogCallback(fn: () => void): void {
+  _showInAppDialog = fn
+}
+
+/** Called by FileExplorer when the user confirms or cancels a selection. */
+export function resolveInAppFolderDialog(path: string | null): void {
+  if (_inAppDialogResolve) {
+    _inAppDialogResolve(path)
+    _inAppDialogResolve = null
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+let _ws: WebSocket | null = null
+let _wsHandlers: Array<(msg: AgentMessage) => void> = []
+let _reconnectDelay = 1000
+
+function getOrCreateWs(): WebSocket {
+  if (_ws && _ws.readyState === WebSocket.OPEN) return _ws
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${window.location.host}${AGENT_WS_PATH}`
+  _ws = new WebSocket(wsUrl)
+
+  _ws.onopen = () => {
+    _reconnectDelay = 1000
   }
 
-  private reconnectDelay = 1000
-
-  private initWebSocket(): void {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}${AGENT_WS_PATH}`
-
-    this.ws = new WebSocket(wsUrl)
-
-    this.ws.onopen = () => {
-      this.reconnectDelay = 1000
+  _ws.onmessage = (event: MessageEvent) => {
+    try {
+      const msg = JSON.parse(event.data as string) as AgentMessage
+      _wsHandlers.forEach((h) => h(msg))
+    } catch {
+      console.error('[BrowserAdapter] Failed to parse agent message')
     }
+  }
 
-    this.ws.onmessage = (event: MessageEvent) => {
-      try {
-        const message = JSON.parse(event.data as string) as AgentMessage
-        this.agentMessageCallbacks.forEach((cb) => cb(message))
-      } catch {
-        console.error('[BrowserAdapter] Failed to parse agent message:', event.data)
-      }
-    }
+  _ws.onerror = (err) => {
+    console.error('[BrowserAdapter] WebSocket error:', err)
+  }
 
-    this.ws.onerror = (error) => {
-      console.error('[BrowserAdapter] WebSocket error:', error)
-    }
+  _ws.onclose = () => {
+    _ws = null
+    _reconnectDelay = Math.min(_reconnectDelay * 2, 30_000)
+    setTimeout(getOrCreateWs, _reconnectDelay)
+  }
 
-    this.ws.onclose = () => {
-      setTimeout(() => {
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000)
-        this.initWebSocket()
-      }, this.reconnectDelay)
-    }
+  return _ws
+}
+
+// ── Adapter ───────────────────────────────────────────────────────────────────
+
+export class BrowserAdapter implements IPlatformAdapter {
+
+  private async fsGet<T>(route: string): Promise<T> {
+    const res = await fetch(`/api/fs/${route}`)
+    if (!res.ok) throw new Error(`[BrowserAdapter] GET /api/fs/${route} → ${res.status}`)
+    const json = await res.json() as { ok: boolean; data?: T; error?: string }
+    if (!json.ok) throw new Error(json.error ?? 'Unknown API error')
+    return json.data as T
+  }
+
+  private async fsPost<T>(route: string, body: unknown): Promise<T> {
+    const res = await fetch(`/api/fs/${route}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) throw new Error(`[BrowserAdapter] POST /api/fs/${route} → ${res.status}`)
+    const json = await res.json() as { ok: boolean; data?: T; error?: string }
+    if (!json.ok) throw new Error(json.error ?? 'Unknown API error')
+    return json.data as T
   }
 
   async readFile(path: string): Promise<string> {
-    const response = await fetch('/api/filesystem/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
-    })
-    if (!response.ok) throw new Error(`readFile failed: ${response.statusText}`)
-    return response.text()
+    return this.fsGet<string>(`read?path=${encodeURIComponent(path)}`)
   }
 
   async writeFile(path: string, content: string): Promise<void> {
-    const response = await fetch('/api/filesystem/write', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path, content }),
-    })
-    if (!response.ok) throw new Error(`writeFile failed: ${response.statusText}`)
+    await this.fsPost('write', { path, content })
   }
 
-  async readDir(path: string): Promise<string[]> {
-    const response = await fetch(`/api/filesystem/dir?path=${encodeURIComponent(path)}`)
-    if (!response.ok) throw new Error(`readDir failed: ${response.statusText}`)
-    return response.json() as Promise<string[]>
+  async readDir(path: string): Promise<DirEntry[]> {
+    return this.fsGet<DirEntry[]>(`dir?path=${encodeURIComponent(path)}`)
   }
 
   async exists(path: string): Promise<boolean> {
-    const response = await fetch(`/api/filesystem/exists?path=${encodeURIComponent(path)}`)
-    if (!response.ok) return false
-    const data = await response.json() as { exists: boolean }
-    return data.exists
+    return this.fsGet<boolean>(`exists?path=${encodeURIComponent(path)}`)
   }
 
   async openFolderDialog(): Promise<string | null> {
-    const path = window.prompt('Enter project folder path on the server:')
-    if (path) this.projectRoot = path.trim()
-    return path ? path.trim() : null
+    return new Promise<string | null>((resolve) => {
+      _inAppDialogResolve = resolve
+      if (_showInAppDialog) {
+        _showInAppDialog()
+      } else {
+        console.warn('[BrowserAdapter] No in-app dialog registered — resolving null')
+        resolve(null)
+      }
+    })
   }
 
   async getProjectRoot(): Promise<string> {
-    return this.projectRoot
+    return localStorage.getItem(PROJECT_ROOT_KEY) ?? ''
+  }
+
+  async setProjectRoot(root: string): Promise<void> {
+    localStorage.setItem(PROJECT_ROOT_KEY, root)
+  }
+
+  async getFilesystemRoots(): Promise<DirEntry[]> {
+    return this.fsGet<DirEntry[]>('roots')
   }
 
   async sendToAgent(message: AgentMessage): Promise<void> {
-    if (this.ws?.readyState !== WebSocket.OPEN) {
-      throw new Error('[BrowserAdapter] WebSocket is not connected')
+    const ws = getOrCreateWs()
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message))
+    } else {
+      ws.addEventListener('open', () => ws.send(JSON.stringify(message)), { once: true })
     }
-    this.ws.send(JSON.stringify(message))
   }
 
-  onAgentMessage(callback: (message: AgentMessage) => void): void {
-    this.agentMessageCallbacks.push(callback)
+  onAgentMessage(callback: (message: AgentMessage) => void): () => void {
+    _wsHandlers.push(callback)
+    getOrCreateWs()
+    return () => {
+      _wsHandlers = _wsHandlers.filter((h) => h !== callback)
+    }
   }
 
   getPlatformInfo(): PlatformInfo {
     return {
-      mode: 'browser',
+      mode: 'server',
       version: '0.1.0',
       capabilities: ['multi-user'],
     }

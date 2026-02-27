@@ -75,7 +75,7 @@ function parseAgentResponse(message: AgentMessage): { content: string; success: 
 }
 
 export const useAgentStore = create<AgentState>((set, get) => {
-  platform.onAgentMessage((message: AgentMessage) => {
+  void platform.onAgentMessage((message: AgentMessage) => {
     get().addAgentMessage(message)
   })
 

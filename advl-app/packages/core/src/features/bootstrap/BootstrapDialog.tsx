@@ -8,9 +8,10 @@
  *
  * UC-011 / VE-Bootstrap-Dialog
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useDCMStore } from '../../store/dcm.store'
 import { platform } from '../../platform/adapter.factory'
+import { OpenProjectButton } from '../workspace/FileExplorer'
 import type { AgentMessage } from '@advl/shared'
 
 type BootstrapPhase = 'idle' | 'scanning' | 'ai_enriching' | 'done' | 'error'
@@ -42,6 +43,13 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
   const [violationCount, setViolationCount] = useState(0)
   const { loadDocument } = useDCMStore()
   const sessionRef = useRef<string | null>(null)
+  const cleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      cleanupRef.current?.()
+    }
+  }, [])
 
   function startBootstrap() {
     if (!projectPath.trim() || phase !== 'idle') return
@@ -50,7 +58,7 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
     setPhase('scanning')
     setStatusMessage('')
 
-    platform.onAgentMessage((msg: AgentMessage) => {
+    cleanupRef.current = platform.onAgentMessage((msg: AgentMessage) => {
       if (sessionRef.current !== sessionId) return
       const payload = msg.payload as Record<string, unknown>
 
@@ -62,6 +70,8 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
 
       if (msg.type === 'BOOTSTRAP_COMPLETE') {
         sessionRef.current = null
+        cleanupRef.current?.()
+        cleanupRef.current = null
         const dcm = payload['dcm'] as Parameters<typeof loadDocument>[0]
         loadDocument(dcm)
         setScanStats(payload['scanStats'] as ScanStats)
@@ -72,6 +82,8 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
 
       if (msg.type === 'AGENT_ERROR') {
         sessionRef.current = null
+        cleanupRef.current?.()
+        cleanupRef.current = null
         setPhase('error')
         setStatusMessage(String(payload['message'] ?? 'Unbekannter Fehler'))
       }
@@ -84,6 +96,8 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
       timestamp: new Date().toISOString(),
     }).catch(() => {
       sessionRef.current = null
+      cleanupRef.current?.()
+      cleanupRef.current = null
       setPhase('error')
       setStatusMessage('Verbindung zum Agent fehlgeschlagen')
     })
@@ -112,9 +126,16 @@ export function BootstrapDialog({ onClose }: BootstrapDialogProps) {
         {phase === 'idle' && (
           <>
             <div className="mb-4">
-              <label htmlFor="bootstrap-path" className="text-xs text-gray-400 mb-1.5 block font-medium">
+              <label className="text-xs text-gray-400 mb-1.5 block font-medium">
                 Projekt-Verzeichnis
               </label>
+              <div className="flex gap-2 items-center mb-2">
+                <OpenProjectButton
+                  onProjectOpened={(p) => setProjectPath(p)}
+                  className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white
+                             rounded-lg px-3 py-2 text-sm transition-colors shrink-0"
+                />
+              </div>
               <input
                 id="bootstrap-path"
                 type="text"

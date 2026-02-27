@@ -1,16 +1,19 @@
 /**
  * App.tsx — ADVL Visual IDE shell
  *
- * Layout: narrow left sidebar | left panel (workspace) | main canvas | right inspector panel
- * Main canvas renders CanvasShell (Layer 2 User Flow by default).
- * Agent chat is overlaid bottom-right.
+ * Two states:
+ *   1. Welcome screen  — shown when no project is loaded yet
+ *   2. Editor          — full IDE layout with canvas, panels, agent chat
  *
- * DEV_DCM seed: pre-loads a DCMDocument with screens and navigation edges so
- * the canvas has data immediately. Replaced by real data when a project is
- * opened (loadDCM) or the agent sends a DCM_LOADED message (loadDocument).
+ * Platform detection happens in adapter.factory.ts (single source of truth).
+ * In Electron: "Open Project" triggers native OS folder dialog via IPC.
+ * In Browser:  "Open Project" triggers in-app FileExplorer modal via adapter.browser.ts.
+ *
+ * UC-001 / UC-002
  */
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { platform } from './platform/adapter.factory'
+import { registerInAppDialogCallback } from './platform/adapter.browser'
 import { useDCMStore } from './store/dcm.store'
 import { CanvasShell } from './features/canvas/CanvasShell'
 import { WorkspaceFeature } from './features/workspace'
@@ -20,8 +23,9 @@ import { InspectorPanel } from './features/inspector'
 import { UseCaseEditorFeature } from './features/use-case-editor'
 import { ProjectInitFeature } from './features/project-init'
 import { ComplianceDashboard } from './features/compliance'
-import type { DCMDocument } from '@advl/shared'
 import { BootstrapDialog } from './features/bootstrap/BootstrapDialog'
+import { OpenProjectButton, FileExplorerModal } from './features/workspace/FileExplorer'
+import type { DCMDocument } from '@advl/shared'
 
 
 const DEV_DCM: DCMDocument = {
@@ -108,6 +112,11 @@ type LeftTab = 'workspace' | 'init'
 type RightTab = 'inspector' | 'compliance'
 const STORAGE_MODE: 'project' | 'external' | 'user-home' = 'user-home'
 
+const PROJECT_NAME_RE = /[/\\]([^/\\]+)\s*$/
+function projectName(root: string): string {
+  return PROJECT_NAME_RE.exec(root)?.[1] ?? root
+}
+
 function useDraggable(initialX: number, initialY: number) {
   const [pos, setPos] = useState({ x: initialX, y: initialY })
   const dragging = useRef(false)
@@ -134,21 +143,98 @@ function useDraggable(initialX: number, initialY: number) {
 }
 
 export default function App() {
-  const { loadDocument, document: dcm } = useDCMStore()
+  const { loadDocument, document: dcm, loadDCM } = useDCMStore()
   const [leftTab, setLeftTab] = useState<LeftTab>('workspace')
   const [rightTab, setRightTab] = useState<RightTab>('inspector')
   const [showBootstrap, setShowBootstrap] = useState(false)
+  const [projectRoot, setProjectRoot] = useState<string>('')
+  const [showFilePicker, setShowFilePicker] = useState(false)
   const chat = useDraggable(
-    typeof window !== 'undefined' ? window.innerWidth - 360 : 900,
-    typeof window !== 'undefined' ? window.innerHeight - 300 : 500,
+    typeof globalThis.window !== 'undefined' ? globalThis.window.innerWidth - 360 : 900,
+    typeof globalThis.window !== 'undefined' ? globalThis.window.innerHeight - 300 : 500,
   )
 
   useEffect(() => {
-    if (!dcm) {
+    registerInAppDialogCallback(() => setShowFilePicker(true))
+
+    platform.getProjectRoot().then((root) => {
+      if (root) {
+        setProjectRoot(root)
+        void tryLoadDCM(root)
+      }
+    }).catch(() => { /* no persisted root */ })
+  }, [])
+
+  async function tryLoadDCM(root: string) {
+    try {
+      await loadDCM(root)
+    } catch {
       loadDocument(DEV_DCM)
     }
-  }, [dcm, loadDocument])
+  }
 
+  async function handleProjectOpened(root: string) {
+    setProjectRoot(root)
+    await platform.setProjectRoot(root)
+    void tryLoadDCM(root)
+  }
+
+  function handleSwitchProject() {
+    if (platformInfo.capabilities.includes('native-dialogs')) {
+      platform.openFolderDialog().then((p) => { if (p) void handleProjectOpened(p) }).catch(() => {})
+    } else {
+      setShowFilePicker(true)
+    }
+  }
+
+  // ── Welcome screen ───────────────────────────────────────────────────────
+  if (!projectRoot && !dcm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-950 text-white">
+        <div className="mb-8 text-center">
+          <div className="text-6xl font-bold text-indigo-400 tracking-tight mb-2">ADVL</div>
+          <div className="text-gray-500 text-sm">AI Development Visual Language</div>
+          <div className="mt-1 text-gray-700 text-xs font-mono">
+            {platformInfo.mode} · v0.1.0
+          </div>
+        </div>
+
+        <div className={[
+          'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-8',
+          platformInfo.mode === 'electron'
+            ? 'bg-blue-950 text-blue-300 border border-blue-800'
+            : 'bg-purple-950 text-purple-300 border border-purple-800',
+        ].join(' ')}>
+          <span>{platformInfo.mode === 'electron' ? '🖥' : '🌐'}</span>
+          <span>{platformInfo.mode === 'electron' ? 'Desktop App' : 'Server Mode'}</span>
+        </div>
+
+        <OpenProjectButton onProjectOpened={(p) => { void handleProjectOpened(p) }} />
+
+        <button
+          onClick={() => loadDocument(DEV_DCM)}
+          className="mt-4 text-gray-500 hover:text-gray-300 text-sm underline transition-colors"
+        >
+          Start with demo project
+        </button>
+
+        <p className="mt-10 text-gray-700 text-xs text-center max-w-xs">
+          {platformInfo.mode === 'electron'
+            ? 'A native folder dialog will open'
+            : 'A server filesystem browser will open'}
+        </p>
+
+        {/* In-app picker modal (browser/server mode) */}
+        <FileExplorerModal
+          isOpen={showFilePicker}
+          onSelect={(p) => { void handleProjectOpened(p) }}
+          onClose={() => setShowFilePicker(false)}
+        />
+      </div>
+    )
+  }
+
+  // ── Full editor ───────────────────────────────────────────────────────────
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
       {/* Narrow icon sidebar */}
@@ -164,6 +250,13 @@ export default function App() {
       </aside>
 
       {showBootstrap && <BootstrapDialog onClose={() => setShowBootstrap(false)} />}
+
+      {/* In-app file picker (browser project-switch) */}
+      <FileExplorerModal
+        isOpen={showFilePicker}
+        onSelect={(p) => { void handleProjectOpened(p) }}
+        onClose={() => setShowFilePicker(false)}
+      />
 
       {/* Left panel — tabbed: Workspace / Init Project */}
       <aside className="w-56 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
@@ -186,12 +279,29 @@ export default function App() {
           </button>
           <button
             onClick={() => setShowBootstrap(true)}
-            title="Projekt bootstrappen — bestehenden Code in DCM umwandeln"
+            title="Bootstrap project — convert existing code to DCM"
             className="px-2 text-[10px] text-gray-600 hover:text-indigo-400 transition-colors"
           >
             🔍
           </button>
         </div>
+
+        {/* Project root label + switch button */}
+        {projectRoot && (
+          <div className="px-2 py-1.5 border-b border-gray-800 flex items-center gap-1.5 shrink-0">
+            <span className="text-[10px] text-gray-600 truncate flex-1" title={projectRoot}>
+              📁 {projectName(projectRoot)}
+            </span>
+            <button
+              onClick={handleSwitchProject}
+              title="Switch project"
+              className="text-[10px] text-gray-600 hover:text-indigo-400 transition-colors shrink-0"
+            >
+              ↺
+            </button>
+          </div>
+        )}
+
         {leftTab === 'workspace' && (
           <>
             <div className="shrink-0 border-b border-gray-800">
@@ -249,7 +359,7 @@ export default function App() {
         <span>💾</span>
         <span className="font-mono">{STORAGE_MODE === 'user-home' ? '~/.advl/' : STORAGE_MODE}</span>
         {(STORAGE_MODE === 'user-home' || STORAGE_MODE === 'external') && (
-          <span className="text-green-700" title="Stealth: Nicht im Projektverzeichnis">STEALTH</span>
+          <span className="text-green-700" title="Stealth: not in project directory">STEALTH</span>
         )}
       </div>
 
