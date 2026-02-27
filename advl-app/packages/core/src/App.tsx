@@ -9,7 +9,7 @@
  * the canvas has data immediately. Replaced by real data when a project is
  * opened (loadDCM) or the agent sends a DCM_LOADED message (loadDocument).
  */
-import { useEffect } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { platform } from './platform/adapter.factory'
 import { useDCMStore } from './store/dcm.store'
 import { CanvasShell } from './features/canvas/CanvasShell'
@@ -107,10 +107,39 @@ const platformInfo = platform.getPlatformInfo()
 type LeftTab = 'workspace' | 'init'
 type RightTab = 'inspector' | 'compliance'
 
+function useDraggable(initialX: number, initialY: number) {
+  const [pos, setPos] = useState({ x: initialX, y: initialY })
+  const dragging = useRef(false)
+  const origin = useRef({ mx: 0, my: 0, px: 0, py: 0 })
+
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    dragging.current = true
+    origin.current = { mx: e.clientX, my: e.clientY, px: pos.x, py: pos.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }, [pos])
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLElement>) => {
+    if (!dragging.current) return
+    const dx = e.clientX - origin.current.mx
+    const dy = e.clientY - origin.current.my
+    setPos({ x: origin.current.px + dx, y: origin.current.py + dy })
+  }, [])
+
+  const onPointerUp = useCallback(() => {
+    dragging.current = false
+  }, [])
+
+  return { pos, onPointerDown, onPointerMove, onPointerUp }
+}
+
 export default function App() {
   const { loadDocument, document: dcm } = useDCMStore()
   const [leftTab, setLeftTab] = useState<LeftTab>('workspace')
   const [rightTab, setRightTab] = useState<RightTab>('inspector')
+  const chat = useDraggable(
+    typeof window !== 'undefined' ? window.innerWidth - 360 : 900,
+    typeof window !== 'undefined' ? window.innerHeight - 300 : 500,
+  )
 
   useEffect(() => {
     if (!dcm) {
@@ -202,9 +231,24 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Agent chat overlay */}
-      <div className="fixed bottom-0 right-60 w-80 h-64 border-t border-l border-gray-800 bg-gray-900 z-20">
-        <AgentChatFeature />
+      {/* Agent chat overlay — draggable floating panel */}
+      <div
+        className="fixed z-30 w-80 h-64 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl overflow-hidden flex flex-col"
+        style={{ left: chat.pos.x, top: chat.pos.y }}
+      >
+        <div
+          className="px-3 py-1.5 bg-gray-800 border-b border-gray-700 flex items-center gap-2 cursor-grab active:cursor-grabbing select-none shrink-0"
+          onPointerDown={chat.onPointerDown}
+          onPointerMove={chat.onPointerMove}
+          onPointerUp={chat.onPointerUp}
+        >
+          <span className="text-[10px] text-gray-500">⠿</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold flex-1">Agent Chat</span>
+          <span className="text-[9px] text-gray-700">drag to move</span>
+        </div>
+        <div className="flex-1 overflow-hidden">
+          <AgentChatFeature />
+        </div>
       </div>
     </div>
   )
