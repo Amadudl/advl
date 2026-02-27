@@ -154,10 +154,10 @@ function DbTableInspector({ data }: { data: DbTableNodeData }) {
         <span className="text-sm font-semibold text-emerald-300 font-mono">{data.tableName}</span>
       </div>
       <Row label="Table Name" value={data.tableName} mono />
-      <Row label="Referenced By" value={`${data.referencedBy.length} function${data.referencedBy.length !== 1 ? 's' : ''}`} />
-      {data.referencedBy.length > 0 && (
+      <Row label="Referenced By" value={`${data.referencedBy?.length ?? 0} function${(data.referencedBy?.length ?? 0) !== 1 ? 's' : ''}`} />
+      {(data.referencedBy?.length ?? 0) > 0 && (
         <div className="mt-1 flex flex-col gap-1">
-          {data.referencedBy.map((key) => (
+          {(data.referencedBy ?? []).map((key) => (
             <div key={key} className="text-[10px] text-gray-500 font-mono bg-gray-800/50 rounded px-2 py-1 break-all">
               {key}
             </div>

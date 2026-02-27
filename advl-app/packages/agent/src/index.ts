@@ -36,6 +36,15 @@ wss.on('connection', (ws: WebSocket, req) => {
   const clientIp = req.socket.remoteAddress ?? 'unknown'
   log('info', `Client connected from ${clientIp}`)
 
+  const sendStatus = (status: string, msg: string) => {
+    ws.send(JSON.stringify({
+      id: crypto.randomUUID(),
+      type: 'AGENT_STATUS',
+      payload: { status, message: msg },
+      timestamp: new Date().toISOString(),
+    }))
+  }
+
   ws.on('message', async (data) => {
     let message: AgentMessage | null = null
 
@@ -49,7 +58,7 @@ wss.on('connection', (ws: WebSocket, req) => {
     log('debug', `→ [${message.type}] id=${message.id}`)
 
     try {
-      const response = await routeMessage(message)
+      const response = await routeMessage(message, sendStatus)
       if (response) {
         ws.send(JSON.stringify(response))
         log('debug', `← [${response.type}] replyTo=${message.id}`)
@@ -93,7 +102,10 @@ wss.on('error', (err) => {
   process.exit(1)
 })
 
-async function routeMessage(message: AgentMessage): Promise<AgentMessage | null> {
+async function routeMessage(
+  message: AgentMessage,
+  sendStatus: (status: string, msg: string) => void,
+): Promise<AgentMessage | null> {
   switch (message.type) {
     case AGENT_MESSAGE_TYPES.USE_CASE_SUBMIT:
       return agentCore.handleUseCaseSubmit(message)
@@ -109,6 +121,10 @@ async function routeMessage(message: AgentMessage): Promise<AgentMessage | null>
       return agentCore.handleCodeGenerate(message)
     case AGENT_MESSAGE_TYPES.RULE_VALIDATE:
       return agentCore.handleRuleValidate(message)
+    case 'BOOTSTRAP_PROJECT':
+      return agentCore.handleBootstrapProject(message, sendStatus)
+    case 'FIX_VIOLATION':
+      return agentCore.handleFixViolation(message)
     default:
       log('warn', `Unknown message type: ${message.type}`)
       return null

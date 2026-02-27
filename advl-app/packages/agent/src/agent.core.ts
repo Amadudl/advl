@@ -12,11 +12,25 @@
  */
 import fs from 'node:fs/promises'
 import { v4 as uuidv4 } from 'uuid'
-import type { AgentMessage, AgentResponsePayload, UseCase } from '@advl/shared'
+import type { AgentMessage, AgentResponsePayload, UseCase, DCMDocument } from '@advl/shared'
 import { AGENT_MESSAGE_TYPES } from '@advl/shared'
 import { dcmEngine } from './dcm.engine.js'
 import { rulesEngine } from './rules.engine.js'
 import { llmClient, buildAdvlSystemPrompt } from './llm.client.js'
+import { scanCodebase } from './tools/codebase-scanner.js'
+import { StorageService } from './storage.service.js'
+import { loadConfig } from './config.loader.js'
+
+function countViolations(dcm: DCMDocument): number {
+  let count = 0
+  for (const table of dcm.db_tables ?? []) {
+    if (!table.owner_service) count++
+    const hasPii = table.fields?.some((f) => f.is_pii) ?? false
+    if (hasPii && !table.audit_log) count++
+    if (table.retention_days === null || table.retention_days === undefined) count++
+  }
+  return count
+}
 
 function makeResponse(replyTo: string, payload: AgentResponsePayload): AgentMessage {
   return {
@@ -349,6 +363,181 @@ Provide the implementation as TypeScript code with:
       return makeResponse(message.id, {
         success: true,
         message: response,
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
+  },
+
+  /**
+   * Handle BOOTSTRAP_PROJECT — reverse-engineer an existing codebase into a DCM.
+   *
+   * Steps:
+   *   1. Static scan (regex extraction of endpoints, tables, functions)
+   *   2. AI enrichment — derive use cases, table owners, data flows
+   *   3. Merge into a full DCMDocument
+   *   4. Count violations server-side
+   *   5. Return BOOTSTRAP_COMPLETE with dcm + stats
+   *
+   * UC-011 (Reverse Engineering Bootstrapper)
+   */
+  async handleBootstrapProject(
+    message: AgentMessage,
+    sendStatus: (status: string, msg: string) => void,
+  ): Promise<AgentMessage> {
+    const payload = message.payload as { projectRoot: string }
+    const projectRoot = payload.projectRoot ?? process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
+
+    try {
+      sendStatus('scanning', `Scanne ${projectRoot}...`)
+      const { dcm: scannedDcm, scanStats } = await scanCodebase(projectRoot)
+
+      let enriched: {
+        use_cases?: Array<{ id: string; name: string; endpoints?: string[]; functions?: string[] }>
+        table_owners?: Record<string, string>
+        data_flows?: Array<{ id: string; source: string; target: string; operation: string }>
+      } = {}
+
+      if (llmClient.isConfigured()) {
+        sendStatus('ai_enriching', 'AI leitet Use Cases ab...')
+        const enrichmentPrompt = `Du bist ein Software-Architekt. Du hast folgenden Code-Scan erhalten:
+
+ENDPOINTS: ${JSON.stringify((scannedDcm.endpoints ?? []).slice(0, 30), null, 2)}
+DB_TABLES: ${JSON.stringify((scannedDcm.db_tables ?? []).slice(0, 20), null, 2)}
+FUNCTIONS (sample): ${JSON.stringify((scannedDcm.functions ?? []).slice(0, 20), null, 2)}
+
+Aufgabe:
+1. Leite 5-15 wahrscheinliche Use Cases ab (was macht diese App?)
+2. Verknüpfe jeden Use Case mit den passenden endpoints[] und functions[]
+3. Bestimme für jede DB-Tabelle den wahrscheinlichen owner_service
+4. Identifiziere data_flows zwischen Endpoints und Tabellen
+
+Antworte NUR mit validem JSON nach diesem Schema:
+{
+  "use_cases": [{ "id": "uc_001", "name": "...", "endpoints": ["ep_..."], "functions": ["fn_..."] }],
+  "table_owners": { "tbl_users": "auth-service" },
+  "data_flows": [{ "id": "flow_001", "source": "ep_...", "target": "tbl_...", "operation": "write", "name": "..." }]
+}`
+        try {
+          const aiRaw = await llmClient.complete(enrichmentPrompt)
+          const jsonStr = aiRaw.replace(/```json|```/g, '').trim()
+          enriched = JSON.parse(jsonStr) as typeof enriched
+        } catch {
+          // Fallback: unangereichert — violations werden trotzdem markiert
+        }
+      }
+
+      const today = new Date().toISOString().split('T')[0] ?? ''
+      const useCases: UseCase[] = (enriched.use_cases ?? []).map((uc, i) => ({
+        id: uc.id ?? `uc_${String(i + 1).padStart(3, '0')}`,
+        title: uc.name ?? `Use Case ${i + 1}`,
+        name: uc.name,
+        value: '(derived by bootstrap scanner — verify and update)',
+        status: 'planned' as const,
+        visual_element_id: null,
+        actor: 'User',
+        preconditions: [],
+        postconditions: [],
+        functions: [],
+        rules_applied: [],
+        deprecated_date: null,
+        deprecated_reason: null,
+        replaced_by: null,
+      }))
+
+      const finalDcm: DCMDocument = {
+        version: '1.0',
+        project: scannedDcm.project,
+        use_cases: useCases,
+        visual_elements: [],
+        endpoints: scannedDcm.endpoints,
+        functions: scannedDcm.functions,
+        db_tables: (scannedDcm.db_tables ?? []).map((table) => ({
+          ...table,
+          owner_service: enriched.table_owners?.[table.id],
+        })),
+        data_flows: (enriched.data_flows ?? []).map((f) => ({
+          id: f.id,
+          name: f.id,
+          source: f.source,
+          target: f.target,
+          operation: (f.operation ?? 'read') as 'read' | 'write' | 'delete' | 'stream',
+        })),
+      }
+
+      const config = await loadConfig()
+      const storage = new StorageService(config)
+      const yaml = await import('yaml')
+      await storage.writeDCM(yaml.stringify(finalDcm))
+
+      const violationCount = countViolations(finalDcm)
+
+      return {
+        id: uuidv4(),
+        type: 'BOOTSTRAP_COMPLETE',
+        payload: {
+          dcm: finalDcm,
+          scanStats,
+          violationCount,
+          message: `Scan komplett: ${scanStats.endpointsFound} Endpoints, ${scanStats.tablesFound} Tabellen, ${violationCount} Violations gefunden`,
+          today,
+        },
+        timestamp: new Date().toISOString(),
+        replyTo: message.id,
+      }
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
+  },
+
+  /**
+   * Handle FIX_VIOLATION — AI-assisted fix for a single DCM violation.
+   *
+   * Loads the current DCM, asks the LLM to produce a JSON patch,
+   * and returns the AI response. Actual patch application is done
+   * by the client after reviewing the suggestion.
+   *
+   * UC-011 (Reverse Engineering Bootstrapper)
+   */
+  async handleFixViolation(message: AgentMessage): Promise<AgentMessage> {
+    const { violationId, fixPrompt, entityId } = message.payload as {
+      violationId: string
+      fixPrompt: string
+      entityId: string
+    }
+
+    if (!llmClient.isConfigured()) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'LLM API key not configured. Set ADVL_LLM_API_KEY.',
+      })
+    }
+
+    try {
+      const config = await loadConfig()
+      const storage = new StorageService(config)
+      const dcmContent = await storage.readDCM()
+
+      const prompt = `Du bist ADVL Architekt. Behebe folgende Violation im DCM:
+
+VIOLATION: ${fixPrompt}
+ENTITY_ID: ${entityId}
+
+Aktuelles DCM (gekürzt):
+${(dcmContent ?? '(nicht verfügbar)').slice(0, 3000)}
+
+Antworte mit einem JSON patch:
+{
+  "operation": "update_table" | "add_use_case" | "mark_deprecated",
+  "target_id": "${entityId}",
+  "changes": { "owner_service": "auth-service", "audit_log": true }
+}`
+
+      const aiResponse = await llmClient.complete(prompt)
+      return makeResponse(message.id, {
+        success: true,
+        message: aiResponse,
+        data: { violationId, entityId },
       })
     } catch (err) {
       return makeResponse(message.id, { success: false, message: String(err) })

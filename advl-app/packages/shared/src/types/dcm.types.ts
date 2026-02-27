@@ -119,6 +119,55 @@ export interface ScreenElement {
   meta?: Record<string, unknown>
 }
 
+// ── Data Flow types (Layer 1) ─────────────────────────────────────────────────
+
+export interface TableField {
+  name: string
+  type: string
+  is_pii?: boolean
+  gdpr_category?: string
+}
+
+export interface DbTable {
+  id: string
+  name: string
+  owner_service?: string
+  fields?: TableField[]
+  audit_log?: boolean
+  retention_days?: number | null
+  soft_delete?: boolean
+  readers?: string[]
+  writers?: string[]
+  deleters?: string[]
+  source_file?: string
+}
+
+export interface Endpoint {
+  id: string
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'
+  path: string
+  source_file?: string
+  use_cases?: string[]
+}
+
+export interface FunctionEntry {
+  id: string
+  name: string
+  source_file?: string
+  use_cases?: string[]
+}
+
+export interface DataFlow {
+  id: string
+  name: string
+  source: string
+  target: string
+  operation: 'read' | 'write' | 'delete' | 'stream'
+  transforms?: string[]
+  use_case_id?: string
+  critical?: boolean
+}
+
 /**
  * DCMDocument — the in-memory format used by the canvas and dev seed.
  * Extends the core DCM structure with visual_elements for screen-level mapping.
@@ -135,4 +184,8 @@ export interface DCMDocument {
   adrs?: ADR[]
   deprecated?: UseCase[]
   snapshots?: DCMSnapshot[]
+  db_tables?: DbTable[]
+  data_flows?: DataFlow[]
+  endpoints?: Endpoint[]
+  functions?: FunctionEntry[]
 }

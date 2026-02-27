@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "http-192-168-178-88-9000",
+        "projectKey": "advl-app"
+    }
+}

@@ -17,6 +17,9 @@ export type AgentMessageType =
   | 'AGENT_STATUS'        // Agent heartbeat / status broadcast
   | 'AGENT_RESPONSE'      // Agent response to any inbound message
   | 'AGENT_ERROR'         // Agent encountered an error
+  | 'BOOTSTRAP_PROJECT'   // Reverse-engineer an existing codebase into a DCM (UC-011)
+  | 'BOOTSTRAP_COMPLETE'  // Agent finished bootstrap scan + AI enrichment
+  | 'FIX_VIOLATION'       // AI-assisted DCM violation fix (UC-011)
 
 export type AgentStatus = 'idle' | 'thinking' | 'writing' | 'error'
 

@@ -11,6 +11,7 @@ export * from './types/use-case.types.js'
 export * from './types/visual.types.js'
 export * from './types/agent.types.js'
 export * from './types/platform.types.js'
+export * from './types/config.types.js'
 
 // Constants
 export * from './constants/agent.constants.js'

@@ -6,6 +6,7 @@
  */
 import { useState } from 'react'
 import { UserFlowCanvas, DCMArchCanvas } from './UserFlowCanvas'
+import { DataFlowCanvas } from './DataFlowCanvas'
 
 type Layer = 'user-flow' | 'data-flow' | 'ui-2d'
 
@@ -18,7 +19,7 @@ interface LayerConfig {
 
 const LAYERS: LayerConfig[] = [
   { id: 'user-flow', label: 'User Flow', icon: '🗺️', available: true },
-  { id: 'data-flow', label: 'DCM Graph', icon: '🔗', available: true },
+  { id: 'data-flow', label: 'Data Flow', icon: '🔗', available: true },
   { id: 'ui-2d', label: 'UI / 2D', icon: '🎨', available: false },
 ]
 
@@ -52,7 +53,8 @@ export function CanvasShell() {
 
       <div className="flex-1 overflow-hidden">
         {activeLayer === 'user-flow' && <UserFlowCanvas />}
-        {activeLayer === 'data-flow' && <DCMArchCanvas />}
+        {activeLayer === 'data-flow' && <DataFlowCanvas />}
+        {activeLayer === 'data-flow' && false && <DCMArchCanvas />}
         {activeLayer === 'ui-2d' && (
           <div className="flex items-center justify-center h-full text-gray-600">
             <div className="text-center">

@@ -9,7 +9,7 @@
  * the canvas has data immediately. Replaced by real data when a project is
  * opened (loadDCM) or the agent sends a DCM_LOADED message (loadDocument).
  */
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { platform } from './platform/adapter.factory'
 import { useDCMStore } from './store/dcm.store'
 import { CanvasShell } from './features/canvas/CanvasShell'
@@ -20,8 +20,8 @@ import { InspectorPanel } from './features/inspector'
 import { UseCaseEditorFeature } from './features/use-case-editor'
 import { ProjectInitFeature } from './features/project-init'
 import { ComplianceDashboard } from './features/compliance'
-import { useState } from 'react'
 import type { DCMDocument } from '@advl/shared'
+import { BootstrapDialog } from './features/bootstrap/BootstrapDialog'
 
 
 const DEV_DCM: DCMDocument = {
@@ -106,6 +106,7 @@ const platformInfo = platform.getPlatformInfo()
 
 type LeftTab = 'workspace' | 'init'
 type RightTab = 'inspector' | 'compliance'
+const STORAGE_MODE: 'project' | 'external' | 'user-home' = 'user-home'
 
 function useDraggable(initialX: number, initialY: number) {
   const [pos, setPos] = useState({ x: initialX, y: initialY })
@@ -136,6 +137,7 @@ export default function App() {
   const { loadDocument, document: dcm } = useDCMStore()
   const [leftTab, setLeftTab] = useState<LeftTab>('workspace')
   const [rightTab, setRightTab] = useState<RightTab>('inspector')
+  const [showBootstrap, setShowBootstrap] = useState(false)
   const chat = useDraggable(
     typeof window !== 'undefined' ? window.innerWidth - 360 : 900,
     typeof window !== 'undefined' ? window.innerHeight - 300 : 500,
@@ -161,6 +163,8 @@ export default function App() {
         </div>
       </aside>
 
+      {showBootstrap && <BootstrapDialog onClose={() => setShowBootstrap(false)} />}
+
       {/* Left panel — tabbed: Workspace / Init Project */}
       <aside className="w-56 border-r border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
         <div className="flex border-b border-gray-800 shrink-0">
@@ -179,6 +183,13 @@ export default function App() {
             }`}
           >
             Init
+          </button>
+          <button
+            onClick={() => setShowBootstrap(true)}
+            title="Projekt bootstrappen — bestehenden Code in DCM umwandeln"
+            className="px-2 text-[10px] text-gray-600 hover:text-indigo-400 transition-colors"
+          >
+            🔍
           </button>
         </div>
         {leftTab === 'workspace' && (
@@ -230,6 +241,17 @@ export default function App() {
           {rightTab === 'inspector' ? <InspectorPanel /> : <ComplianceDashboard />}
         </div>
       </aside>
+
+      {/* Storage mode badge */}
+      <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5
+                      bg-gray-900/80 border border-gray-800 rounded px-2 py-1
+                      backdrop-blur-sm text-[10px] text-gray-600 pointer-events-none">
+        <span>💾</span>
+        <span className="font-mono">{STORAGE_MODE === 'user-home' ? '~/.advl/' : STORAGE_MODE}</span>
+        {(STORAGE_MODE === 'user-home' || STORAGE_MODE === 'external') && (
+          <span className="text-green-700" title="Stealth: Nicht im Projektverzeichnis">STEALTH</span>
+        )}
+      </div>
 
       {/* Agent chat overlay — draggable floating panel */}
       <div
