@@ -8,6 +8,7 @@
 
 export type AgentMessageType =
   | 'USE_CASE_SUBMIT'     // User submitted a new use case description
+  | 'AGENT_QUERY'         // Free-form natural language query routed through LLM (UC-003)
   | 'DCM_QUERY'           // Query existing functions/endpoints in the DCM
   | 'DCM_UPDATE'          // Agent updates the DCM with new/modified entries
   | 'META_INJECT'         // Inject advl_meta into a visual element

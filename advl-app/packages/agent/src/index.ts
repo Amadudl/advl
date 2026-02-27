@@ -97,6 +97,8 @@ async function routeMessage(message: AgentMessage): Promise<AgentMessage | null>
   switch (message.type) {
     case AGENT_MESSAGE_TYPES.USE_CASE_SUBMIT:
       return agentCore.handleUseCaseSubmit(message)
+    case AGENT_MESSAGE_TYPES.AGENT_QUERY:
+      return agentCore.handleAgentQuery(message)
     case AGENT_MESSAGE_TYPES.DCM_QUERY:
       return agentCore.handleDCMQuery(message)
     case AGENT_MESSAGE_TYPES.DCM_UPDATE:

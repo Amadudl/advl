@@ -3,27 +3,48 @@
  *
  * Renders agent message history from agent.store.
  * Status indicator reflects real agent.store.status.
- * Input submits via agent.store.submitUseCase().
+ *
+ * Two send paths:
+ *   Enter / ↵ button  → sendQuery()  (AGENT_QUERY — free-form NL, routed through LLM)
+ *   Shift+Enter       → submitUseCase() (USE_CASE_SUBMIT — structured UC registration)
+ *
+ * advl_meta injected on both interactive elements per META_INJECTION.md.
+ *
+ * UC-003 / VE-AgentChat-Submit
  */
 import { useRef, useEffect, useState } from 'react'
 import { useAgentStore } from '../../store/agent.store'
 
+const UC003_META = {
+  use_case_id: 'UC-003',
+  use_case_title: 'User queries the ADVL Agent via natural language',
+  function: 'sendQuery',
+  file: 'packages/core/src/store/agent.store.ts',
+  line: 120,
+  endpoint: null,
+  db_tables: [],
+  auth_required: false,
+  last_verified: '2026-02-27',
+  dcm_version: '1.0',
+  visual_element_id: 'VE-AgentChat-Submit',
+}
+
 const STATUS_LABEL: Record<string, string> = {
   idle: '● idle',
-  thinking: '◌ thinking',
-  writing: '✎ writing',
+  thinking: '◌ thinking…',
+  writing: '✎ writing…',
   error: '✗ error',
 }
 
 const STATUS_COLOR: Record<string, string> = {
   idle: 'text-gray-600',
-  thinking: 'text-yellow-500',
-  writing: 'text-blue-400',
+  thinking: 'text-yellow-500 animate-pulse',
+  writing: 'text-blue-400 animate-pulse',
   error: 'text-red-400',
 }
 
 export function AgentChatFeature() {
-  const { status, messages, submitUseCase } = useAgentStore()
+  const { status, messages, sendQuery, submitUseCase } = useAgentStore()
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const isThinking = status === 'thinking' || status === 'writing'
@@ -36,8 +57,18 @@ export function AgentChatFeature() {
     e.preventDefault()
     const trimmed = input.trim()
     if (!trimmed || isThinking) return
-    void submitUseCase(trimmed)
+    void sendQuery(trimmed)
     setInput('')
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault()
+      const trimmed = input.trim()
+      if (!trimmed || isThinking) return
+      void submitUseCase(trimmed)
+      setInput('')
+    }
   }
 
   return (
@@ -49,18 +80,23 @@ export function AgentChatFeature() {
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1.5">
         {messages.length === 0 && (
-          <div className="text-xs text-gray-600 italic p-1">Agent ready. Describe a use case to begin.</div>
+          <div className="text-xs text-gray-600 italic p-1">
+            Agent ready. Ask anything or Shift+Enter to submit a Use Case.
+          </div>
         )}
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`text-xs rounded px-2 py-1.5 max-w-full whitespace-pre-wrap break-words ${
+            className={[
+              'text-xs rounded px-2 py-1.5 max-w-full whitespace-pre-wrap break-words',
               msg.role === 'user'
-                ? 'bg-blue-900 text-blue-100 self-end ml-4'
-                : 'bg-gray-800 text-gray-300 self-start mr-4'
-            }`}
+                ? 'bg-blue-900/80 text-blue-100 self-end ml-4'
+                : msg.success === false
+                  ? 'bg-red-950/60 text-red-300 self-start mr-4 border border-red-800/40'
+                  : 'bg-gray-800 text-gray-300 self-start mr-4',
+            ].join(' ')}
           >
             {msg.content}
           </div>
@@ -73,14 +109,18 @@ export function AgentChatFeature() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           disabled={isThinking}
-          placeholder="Describe a use case…"
+          placeholder={isThinking ? 'Agent thinking…' : 'Ask the agent… (Shift+Enter for UC)'}
+          data-advl-meta={JSON.stringify(UC003_META)}
           className="flex-1 bg-gray-800 text-gray-200 text-xs rounded px-2 py-1.5 outline-none placeholder-gray-600 disabled:opacity-50 focus:ring-1 focus:ring-blue-700"
         />
         <button
           type="submit"
           disabled={!input.trim() || isThinking}
+          data-advl-meta={JSON.stringify({ ...UC003_META, function: 'sendQuery' })}
           className="text-xs bg-blue-700 hover:bg-blue-600 disabled:opacity-40 text-white rounded px-2 py-1.5 transition-colors"
+          title="Send query (Enter)"
         >
           ↵
         </button>

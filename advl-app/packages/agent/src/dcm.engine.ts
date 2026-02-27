@@ -45,10 +45,16 @@ export const dcmEngine = {
   /**
    * Register a new use case in the DCM.
    * Assigns the next sequential UC-ID if none provided.
-   * TODO: Add duplicate detection before registering
+   * Performs exact-title duplicate check before inserting.
    */
   async registerUseCase(useCase: Omit<UseCase, 'id'> & { id?: string }, projectRoot?: string): Promise<UseCase> {
     const dcm = await dcmEngine.readDCM(projectRoot)
+
+    const titleNorm = useCase.title.toLowerCase().trim()
+    const existing = dcm.use_cases.find((uc) => uc.title.toLowerCase().trim() === titleNorm)
+    if (existing) {
+      return existing
+    }
 
     const existingIds = dcm.use_cases.map((uc) => uc.id)
     const nextNum = existingIds.length + 1
@@ -62,24 +68,90 @@ export const dcmEngine = {
 
   /**
    * Query DCM functions by intent description.
-   * TODO: Implement semantic matching — currently returns not-found.
-   * Full implementation will use embeddings or LLM classification.
+   *
+   * Scans all functions across all use cases and scores each by how many
+   * normalised intent words appear in function name + file path + endpoint.
+   * Returns the best match if confidence ≥ 40 % of intent words matched.
+   * No LLM required — deterministic keyword scan.
+   *
+   * UC-007
    */
-  async queryFunctions(intent: string, _projectRoot?: string): Promise<FunctionQueryResult> {
-    // TODO: Load DCM, iterate functions, score against intent
-    // TODO: Return best match if confidence > threshold
-    void intent
-    return { found: false, reason: 'TODO: Semantic function query not yet implemented' }
+  async queryFunctions(intent: string, projectRoot?: string): Promise<FunctionQueryResult> {
+    const dcm = await dcmEngine.readDCM(projectRoot)
+    const words = intent.toLowerCase().split(/\W+/).filter((w) => w.length > 2)
+
+    if (words.length === 0) {
+      return { found: false, reason: 'Intent too short to match' }
+    }
+
+    let bestScore = 0
+    let bestMatch: { fn: (typeof dcm.use_cases)[0]['functions'][0]; ucId: string } | null = null
+
+    for (const uc of dcm.use_cases) {
+      for (const fn of uc.functions) {
+        const haystack = [fn.name, fn.file, fn.endpoint ?? ''].join(' ').toLowerCase()
+        const score = words.filter((w) => haystack.includes(w)).length / words.length
+        if (score > bestScore) {
+          bestScore = score
+          bestMatch = { fn, ucId: uc.id }
+        }
+      }
+    }
+
+    if (bestMatch && bestScore >= 0.4) {
+      return {
+        found: true,
+        functionName: bestMatch.fn.name,
+        useCaseId: bestMatch.ucId,
+        file: bestMatch.fn.file,
+        line: bestMatch.fn.line,
+        endpoint: bestMatch.fn.endpoint ?? undefined,
+        reason: `Keyword match score: ${Math.round(bestScore * 100)}%`,
+      }
+    }
+
+    return { found: false, reason: `No function matched intent (best score: ${Math.round(bestScore * 100)}%)` }
   },
 
   /**
-   * Query DCM use cases by intent to detect duplicates.
-   * TODO: Implement semantic matching.
+   * Query DCM use cases by intent to detect semantic duplicates.
+   *
+   * Scores each UC by keyword overlap between the intent string and the
+   * UC title + value statement. Returns best match if ≥ 40 % overlap.
+   * No LLM required — deterministic keyword scan.
+   *
+   * UC-007
    */
-  async queryUseCases(intent: string, _projectRoot?: string): Promise<UseCaseQueryResult> {
-    // TODO: Load DCM, iterate use_cases, score titles and value statements against intent
-    void intent
-    return { found: false, reason: 'TODO: Semantic use case query not yet implemented' }
+  async queryUseCases(intent: string, projectRoot?: string): Promise<UseCaseQueryResult> {
+    const dcm = await dcmEngine.readDCM(projectRoot)
+    const words = intent.toLowerCase().split(/\W+/).filter((w) => w.length > 2)
+
+    if (words.length === 0) {
+      return { found: false, reason: 'Intent too short to match' }
+    }
+
+    let bestScore = 0
+    let bestMatch: (typeof dcm.use_cases)[0] | null = null
+
+    for (const uc of dcm.use_cases) {
+      const haystack = [uc.title, uc.value, uc.actor].join(' ').toLowerCase()
+      const score = words.filter((w) => haystack.includes(w)).length / words.length
+      if (score > bestScore) {
+        bestScore = score
+        bestMatch = uc
+      }
+    }
+
+    if (bestMatch && bestScore >= 0.4) {
+      return {
+        found: true,
+        matchedId: bestMatch.id,
+        confidence: bestScore,
+        reason: `Keyword match score: ${Math.round(bestScore * 100)}% — "${bestMatch.title}"`,
+      }
+    }
+
+    return { found: false, reason: `No use case matched intent (best score: ${Math.round(bestScore * 100)}%)` }
   },
 
   /**

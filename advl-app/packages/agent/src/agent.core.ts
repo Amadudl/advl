@@ -16,7 +16,7 @@ import type { AgentMessage, AgentResponsePayload, UseCase } from '@advl/shared'
 import { AGENT_MESSAGE_TYPES } from '@advl/shared'
 import { dcmEngine } from './dcm.engine.js'
 import { rulesEngine } from './rules.engine.js'
-import { llmClient } from './llm.client.js'
+import { llmClient, buildAdvlSystemPrompt } from './llm.client.js'
 
 function makeResponse(replyTo: string, payload: AgentResponsePayload): AgentMessage {
   return {
@@ -291,6 +291,64 @@ Provide the implementation as TypeScript code with:
         success: true,
         message: response,
         data: { use_case_id: uc.id },
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
+  },
+
+  /**
+   * Handle AGENT_QUERY — free-form natural language query to the ADVL agent.
+   *
+   * Loads the current DCM from disk to inject as context into the system prompt.
+   * Passes the user's prompt through the LLM with the full ADVL identity +
+   * rulebook + live DCM state as system context.
+   *
+   * If LLM is not configured, returns a structured no-key error so the UI
+   * can display a clear actionable message rather than a silent failure.
+   *
+   * UC-003 / VE-AgentChat-Submit
+   */
+  async handleAgentQuery(message: AgentMessage): Promise<AgentMessage> {
+    const payload = message.payload as { prompt: string }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
+
+    if (!payload.prompt?.trim()) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'AGENT_QUERY requires a non-empty prompt field.',
+      })
+    }
+
+    if (!llmClient.isConfigured()) {
+      return makeResponse(message.id, {
+        success: false,
+        message: [
+          'No LLM API key configured.',
+          'Set ADVL_LLM_API_KEY in your .env file to enable natural language queries.',
+          '',
+          'Supported providers (set ADVL_LLM_PROVIDER):',
+          '  openrouter (default) — https://openrouter.ai',
+          '  anthropic            — https://api.anthropic.com',
+          '  openai               — https://api.openai.com',
+        ].join('\n'),
+      })
+    }
+
+    try {
+      let dcm
+      try {
+        dcm = await dcmEngine.readDCM(projectRoot)
+      } catch {
+        dcm = undefined
+      }
+
+      const systemPrompt = buildAdvlSystemPrompt(dcm)
+      const response = await llmClient.complete(payload.prompt, systemPrompt)
+
+      return makeResponse(message.id, {
+        success: true,
+        message: response,
       })
     } catch (err) {
       return makeResponse(message.id, { success: false, message: String(err) })

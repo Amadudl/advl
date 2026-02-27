@@ -223,7 +223,7 @@ use_cases:
   - id: "UC-003"
     title: "User queries the ADVL Agent via natural language"
     value: "Translates human intent into structured architectural intent, bridging the gap between non-technical vision and rigorous code logic execution."
-    status: "planned"
+    status: "implemented"
     visual_element_id: "VE-AgentChat-Submit"
     actor: "ADVL User (Developer/Architect)"
     preconditions:
@@ -233,8 +233,59 @@ use_cases:
       - "Agent receives query prompt"
       - "Agent evaluates query against current DCM state and project rules"
       - "Response is streamed or returned in a structured ADVL response format"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "sendQuery"
+        file: "packages/core/src/store/agent.store.ts"
+        line: 120
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "handleAgentQuery"
+        file: "packages/agent/src/agent.core.ts"
+        line: 312
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "buildAdvlSystemPrompt"
+        file: "packages/agent/src/llm.client.ts"
+        line: 61
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "complete"
+        file: "packages/agent/src/llm.client.ts"
+        line: 135
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "parseAgentResponse"
+        file: "packages/core/src/store/agent.store.ts"
+        line: 56
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "AgentChatFeature"
+        file: "packages/core/src/features/agent-chat/index.tsx"
+        line: 46
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
@@ -294,7 +345,7 @@ use_cases:
   - id: "UC-007"
     title: "System implements an approved Use Case via Agent"
     value: "Automates the translation of architecture into working code, automatically updating the DCM and preventing ghost logic."
-    status: "planned"
+    status: "implemented"
     visual_element_id: null
     actor: "System"
     preconditions:
@@ -303,8 +354,67 @@ use_cases:
       - "Source code is written/modified to implement the Use Case"
       - "DCM Use Case status changes to 'implemented'"
       - "DCM functions array is updated with precise file/line tracking"
-    functions: []
-    rules_applied: []
+    functions:
+      - name: "handleCodeGenerate"
+        file: "packages/agent/src/agent.core.ts"
+        line: 240
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "handleUseCaseSubmit"
+        file: "packages/agent/src/agent.core.ts"
+        line: 42
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "registerUseCase"
+        file: "packages/agent/src/dcm.engine.ts"
+        line: 50
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "queryFunctions"
+        file: "packages/agent/src/dcm.engine.ts"
+        line: 79
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "queryUseCases"
+        file: "packages/agent/src/dcm.engine.ts"
+        line: 125
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "stream"
+        file: "packages/agent/src/llm.client.ts"
+        line: 183
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+      - name: "parseAgentResponse"
+        file: "packages/core/src/store/agent.store.ts"
+        line: 56
+        endpoint: null
+        db_tables: []
+        auth_required: false
+        roles_required: []
+        last_modified: "2026-02-27"
+    rules_applied:
+      - "USE_CASE_FIRST"
+      - "NO_FAKE"
+      - "META_INJECTION"
     deprecated_date: null
     deprecated_reason: null
     replaced_by: null
