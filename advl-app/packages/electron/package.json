@@ -1,0 +1,22 @@
+{
+  "name": "@advl/electron",
+  "version": "0.1.0",
+  "description": "ADVL Electron Shell — desktop application wrapper for ADVL Core.",
+  "private": true,
+  "main": "./dist/main.js",
+  "scripts": {
+    "dev": "tsc --watch --project tsconfig.json & electron .",
+    "build": "tsc --project tsconfig.json",
+    "package": "electron-builder --config electron-builder.yml",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@advl/shared": "workspace:*",
+    "electron": "^31.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.4.5"
+  }
+}

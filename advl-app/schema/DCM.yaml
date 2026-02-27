@@ -1,0 +1,34 @@
+version: "1.0"
+schema_version: "1.0"
+project: "advl-app"
+description: "ADVL application — visual software engineering tool"
+author: "Amadeus Lederle / IEX Labs UG (haftungsbeschränkt)"
+created: ""
+last_updated: ""
+
+stack:
+  runtime: "Node.js 20"
+  framework: "React 18 + Vite"
+  language: "TypeScript 5"
+  orm: null
+  database: null
+  auth: null
+  api_style: "REST + WebSocket"
+  styling: "Tailwind CSS 3"
+  ui_components: null
+  state_management: "Zustand"
+  email: null
+  file_storage: "local filesystem"
+  deployment: "Electron (desktop) | Node.js server (server mode)"
+  ci_cd: null
+  testing: null
+  package_manager: "pnpm"
+  monorepo: true
+
+adrs: []
+
+use_cases: []
+
+deprecated: []
+
+snapshots: []

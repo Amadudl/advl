@@ -1,0 +1,23 @@
+{
+  "name": "advl-app",
+  "version": "0.1.0",
+  "description": "ADVL — AI Development Visual Language. Monorepo root.",
+  "private": true,
+  "author": "Amadeus Lederle / IEX Labs UG (haftungsbeschränkt)",
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter agent dev\" \"pnpm --filter core dev\" \"pnpm --filter electron dev\"",
+    "dev-server": "concurrently \"pnpm --filter agent dev\" \"pnpm --filter server dev\"",
+    "build": "pnpm --filter shared build && pnpm --filter core build && pnpm --filter agent build && pnpm --filter electron build && pnpm --filter server build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

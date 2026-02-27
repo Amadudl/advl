@@ -1,0 +1,6 @@
+# pnpm-workspace.yaml
+# Defines the monorepo workspace packages for ADVL.
+# All packages under /packages are included automatically.
+
+packages:
+  - 'packages/*'

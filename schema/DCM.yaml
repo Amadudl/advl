@@ -1,0 +1,115 @@
+# DCM.yaml — Data Communication Matrix
+# ADVL (AI Development Visual Language)
+#
+# This file is the single source of truth for every function, endpoint, and use case
+# that exists in this project. It is auto-maintained by ADVL agents.
+#
+# RULES:
+#   - Do not manually edit this file unless you fully understand the ADVL system.
+#   - Every code change that creates, modifies, or deletes a function MUST update this file
+#     in the same commit. There is no "I'll update it later."
+#   - Agents must query this file before writing any new logic.
+#   - See /schema/DCM_SCHEMA.md for full field documentation.
+#
+# Author: Amadeus Lederle / IEX Labs UG (haftungsbeschränkt)
+# Version: 1.0
+
+version: "1.0"
+project: "advl"
+description: "AI Development Visual Language — meta-layer repository"
+author: "Amadeus Lederle / IEX Labs UG (haftungsbeschränkt)"
+created: "2026-02-25"
+last_updated: "2026-02-25"
+
+# ─────────────────────────────────────────────
+# STACK DECLARATION
+# Declared at project initialization. Changes require an ADR.
+# ─────────────────────────────────────────────
+stack:
+  runtime: null
+  framework: null
+  language: null
+  orm: null
+  database: null
+  auth: null
+  api_style: null
+  styling: null
+  ui_components: null
+  state_management: null
+  email: null
+  file_storage: null
+  deployment: null
+  ci_cd: null
+  testing: null
+  package_manager: null
+  monorepo: null
+  # Note: Stack is declared during project bootstrapping (Step 1 of ADVL init flow).
+  # This DCM represents the ADVL meta-repository itself, which has no application stack.
+
+# ─────────────────────────────────────────────
+# ARCHITECTURE DECISION RECORDS
+# ─────────────────────────────────────────────
+adrs: []
+# Format:
+# - id: "ADR-001"
+#   date: "YYYY-MM-DD"
+#   status: "accepted"           # proposed | accepted | superseded | deprecated
+#   title: "Decision title"
+#   decision: "What was decided"
+#   context: "Why the decision was needed"
+#   alternatives_considered:
+#     - name: "Alternative name"
+#       reason_rejected: "Why it was rejected"
+#   consequences:
+#     - "Implication going forward"
+#   stack_update: "Which stack field this affects, if any"
+
+# ─────────────────────────────────────────────
+# USE CASES
+# ─────────────────────────────────────────────
+use_cases: []
+# Format (see DCM_SCHEMA.md for full spec):
+#
+# - id: "UC-001"
+#   title: "[Actor] [action]"
+#   value: "[Business value in plain language]"
+#   status: planned              # planned | in_progress | implemented | deprecated
+#   visual_element_id: null      # VE-[EntityName]-[Action] or null or "pending"
+#   actor: "[Who performs the action]"
+#   preconditions:
+#     - "[Precondition 1]"
+#   postconditions:
+#     - "[Postcondition 1]"
+#   functions:
+#     - name: "functionName"
+#       file: "src/path/to/file.ts"
+#       line: 0
+#       endpoint: "HTTP_METHOD /api/path"      # null if no endpoint
+#       db_tables: ["table1", "table2"]
+#       auth_required: true
+#       roles_required: []
+#       last_modified: "YYYY-MM-DD"
+#   rules_applied:
+#     - NO_DUPLICATE
+#     - USE_CASE_FIRST
+#   deprecated_date: null        # Only set when status = deprecated
+#   deprecated_reason: null      # Only set when status = deprecated
+#   replaced_by: null            # UC-ID of replacement, only when deprecated
+
+# ─────────────────────────────────────────────
+# DEPRECATED ENTRIES
+# Entries moved here when status = deprecated.
+# Never delete — keep for audit and rollback reference.
+# ─────────────────────────────────────────────
+deprecated: []
+
+# ─────────────────────────────────────────────
+# DCM SNAPSHOTS INDEX
+# Auto-generated references to versioned snapshots in /schema/snapshots/
+# ─────────────────────────────────────────────
+snapshots: []
+# Format:
+# - version: "1.0"
+#   date: "YYYY-MM-DD"
+#   milestone: "Initial project setup"
+#   file: "schema/snapshots/DCM_v1.0_2026-02-25.yaml"
