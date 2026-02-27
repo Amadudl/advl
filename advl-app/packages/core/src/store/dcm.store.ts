@@ -116,7 +116,14 @@ export const useDCMStore = create<DCMState>((set, get) => ({
       const doc = dcmToDCMDocument(dcm)
       set({ dcm, document: doc, isLoading: false })
     } catch (err) {
-      set({ error: String(err), isLoading: false })
+      const msg = String(err)
+      // 404 / ENOENT = project has no DCM yet — not an error, just no file
+      const isNotFound = msg.includes('404') || msg.includes('ENOENT') || msg.includes('not found')
+      if (isNotFound) {
+        set({ isLoading: false, error: null })
+      } else {
+        set({ error: msg, isLoading: false })
+      }
     }
   },
 

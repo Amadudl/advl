@@ -34,12 +34,18 @@ export function DCMViewerFeature() {
 
   if (error) {
     return (
-      <div className="p-3 text-xs text-red-400 bg-red-950 rounded m-2">{error}</div>
+      <div className="p-3 text-xs text-red-400 bg-red-950 rounded m-2">
+        DCM error: {error}
+      </div>
     )
   }
 
   if (!dcm) {
-    return <div className="p-3 text-xs text-gray-600 italic">DCM not loaded</div>
+    return (
+      <div className="p-3 text-xs text-gray-600 italic">
+        No DCM.yaml found — use Init to create one
+      </div>
+    )
   }
 
   return (
