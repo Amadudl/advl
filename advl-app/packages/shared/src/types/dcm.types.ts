@@ -32,6 +32,8 @@ export interface DCMFunction {
 export interface UseCase {
   id: string                        // UC-001, UC-002, ...
   title: string                     // "[Actor] [action]"
+  /** Alias for title — used by Layer 2 canvas and DCMDocument format */
+  name?: string
   value: string                     // Business value statement
   status: UseCaseStatus
   visual_element_id: string | null | 'pending'
@@ -101,4 +103,36 @@ export interface DCM {
   use_cases: UseCase[]
   deprecated: UseCase[]
   snapshots: DCMSnapshot[]
+}
+
+// ── Layer 2 Canvas types ─────────────────────────────────────────────────────
+
+/** DCM-level screen/component definition (separate from canvas VisualElement layout) */
+export type ScreenElementType = 'screen' | 'component' | 'modal' | 'overlay'
+
+export interface ScreenElement {
+  id: string
+  type: ScreenElementType
+  name: string
+  route?: string
+  children?: string[]
+  meta?: Record<string, unknown>
+}
+
+/**
+ * DCMDocument — the in-memory format used by the canvas and dev seed.
+ * Extends the core DCM structure with visual_elements for screen-level mapping.
+ * Produced by dcmService.readDCM() when visual_elements are present in YAML,
+ * or seeded directly in dev mode.
+ */
+export interface DCMDocument {
+  version: string
+  project?: string
+  description?: string
+  use_cases: UseCase[]
+  visual_elements: ScreenElement[]
+  stack?: Partial<DCMStack>
+  adrs?: ADR[]
+  deprecated?: UseCase[]
+  snapshots?: DCMSnapshot[]
 }

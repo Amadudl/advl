@@ -1,0 +1,120 @@
+/**
+ * UserFlowCanvas.tsx — Layer 2: User Flow View
+ *
+ * Renders DCM screens as React Flow nodes and navigation edges from
+ * postconditions with 'screen_id:' prefix. Data comes from dcm.store.
+ * NODE_TYPES must be defined outside the component (React Flow requirement).
+ */
+import { useCallback, useMemo } from 'react'
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  BackgroundVariant,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+} from '@xyflow/react'
+import type { Connection } from '@xyflow/react'
+import '@xyflow/react/dist/style.css'
+
+import { useDCMStore } from '../../store/dcm.store'
+import { buildFlowGraph } from './utils/dcm-to-flow'
+import { ScreenNode } from './nodes/ScreenNode'
+
+const NODE_TYPES = {
+  screenNode: ScreenNode,
+}
+
+export function UserFlowCanvas() {
+  const { document: dcm, getScreens, getNavigationEdges, getUseCasesForScreen } = useDCMStore()
+
+  const { initialNodes, initialEdges } = useMemo(() => {
+    const screens = getScreens()
+    const navEdges = getNavigationEdges()
+
+    const useCasesByScreen: Record<string, number> = {}
+    for (const screen of screens) {
+      useCasesByScreen[screen.id] = getUseCasesForScreen(screen.id).length
+    }
+
+    const { nodes, edges } = buildFlowGraph(screens, navEdges, useCasesByScreen)
+    return { initialNodes: nodes, initialEdges: edges }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dcm])
+
+  const [nodes, , onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+
+  const onConnect = useCallback(
+    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
+    [setEdges],
+  )
+
+  if (!dcm) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
+        <div className="text-5xl">📐</div>
+        <div className="text-lg font-medium">Kein Projekt geladen</div>
+        <div className="text-sm">Öffne ein ADVL Projekt um den User Flow zu sehen</div>
+      </div>
+    )
+  }
+
+  if (nodes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4 text-gray-500">
+        <div className="text-5xl">🗺️</div>
+        <div className="text-lg font-medium">Noch keine Screens im DCM</div>
+        <div className="text-sm text-center max-w-xs">
+          Füge <code className="text-indigo-400">visual_elements</code> vom Typ{' '}
+          <code className="text-indigo-400">screen</code> in dein DCM.yaml ein
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full h-full bg-gray-950">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        nodeTypes={NODE_TYPES}
+        fitView
+        fitViewOptions={{ padding: 0.15 }}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          style: { stroke: '#6366f1', strokeWidth: 2 },
+        }}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1}
+          color="#374151"
+        />
+        <Controls className="!bg-gray-800 !border-gray-700 !shadow-xl" />
+        <MiniMap
+          className="!bg-gray-900 !border-gray-700"
+          nodeColor="#6366f1"
+          maskColor="rgba(0,0,0,0.6)"
+        />
+
+        <div className="absolute top-3 left-3 z-10 flex items-center gap-2
+                        bg-gray-900/90 border border-indigo-500/30 rounded-lg
+                        px-3 py-1.5 backdrop-blur-sm">
+          <span className="text-indigo-400 text-xs font-bold tracking-wider">LAYER 2</span>
+          <span className="text-gray-500 text-xs">USER FLOW</span>
+          <span className="text-gray-600 text-xs ml-2">
+            {nodes.length} screens · {edges.length} transitions
+          </span>
+        </div>
+      </ReactFlow>
+    </div>
+  )
+}

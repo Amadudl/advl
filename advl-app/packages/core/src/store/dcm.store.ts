@@ -2,29 +2,54 @@
  * store/dcm.store.ts — DCM Zustand store
  *
  * Holds the in-memory representation of the project's DCM.yaml.
- * loadDCM() reads and parses DCM.yaml via dcmService.
- * saveDCM() serializes and writes back via dcmService.
- * Agent DCM_UPDATE messages call updateUseCase() to keep the store in sync.
+ * loadDCM()    — reads DCM.yaml from disk via dcmService (file-based projects).
+ * loadDocument() — loads a pre-parsed DCMDocument (dev seed, agent message).
+ * saveDCM()    — writes back to disk via dcmService.
+ * updateUseCase() — in-place update when agent modifies a use case.
+ *
+ * Canvas selectors:
+ *   getScreens()            — ScreenElement[] of type 'screen'
+ *   getUseCasesForScreen()  — UseCase[] for a given visual_element_id
+ *   getNavigationEdges()    — NavigationEdge[] from postconditions with 'screen_id:' prefix
  */
 import { create } from 'zustand'
-import type { DCM, UseCase } from '@advl/shared'
+import type { DCM, DCMDocument, UseCase, ScreenElement } from '@advl/shared'
 import { dcmService } from '../services/dcm.service'
+
+export interface NavigationEdge {
+  id: string
+  sourceScreenId: string
+  targetScreenId: string
+  useCaseId: string
+  useCaseName: string
+  label: string
+}
 
 interface DCMState {
   dcm: DCM | null
+  document: DCMDocument | null
   isLoading: boolean
   error: string | null
 
-  // Actions
+  // File-based project actions
   loadDCM: (projectRoot: string) => Promise<void>
   saveDCM: (projectRoot: string) => Promise<void>
   updateUseCase: (useCase: UseCase) => void
   setDCM: (dcm: DCM) => void
   setError: (error: string | null) => void
+
+  // Canvas actions
+  loadDocument: (doc: DCMDocument) => void
+
+  // Canvas selectors
+  getScreens: () => ScreenElement[]
+  getUseCasesForScreen: (screenId: string) => UseCase[]
+  getNavigationEdges: () => NavigationEdge[]
 }
 
 export const useDCMStore = create<DCMState>((set, get) => ({
   dcm: null,
+  document: null,
   isLoading: false,
   error: null,
 
@@ -62,17 +87,57 @@ export const useDCMStore = create<DCMState>((set, get) => ({
         dcm: {
           ...state.dcm,
           use_cases: updated,
-          last_updated: new Date().toISOString().split('T')[0],
+          last_updated: new Date().toISOString().split('T')[0] ?? state.dcm.last_updated,
         },
       }
     })
   },
 
-  setDCM: (dcm: DCM) => {
-    set({ dcm })
+  setDCM: (dcm: DCM) => set({ dcm }),
+
+  setError: (error) => set({ error }),
+
+  loadDocument: (doc: DCMDocument) => set({ document: doc, error: null }),
+
+  getScreens: () => {
+    const doc = get().document
+    if (!doc?.visual_elements) return []
+    return doc.visual_elements.filter((el) => el.type === 'screen')
   },
 
-  setError: (error) => {
-    set({ error })
+  getUseCasesForScreen: (screenId: string) => {
+    const doc = get().document
+    if (!doc?.use_cases) return []
+    return doc.use_cases.filter((uc) => uc.visual_element_id === screenId)
+  },
+
+  getNavigationEdges: (): NavigationEdge[] => {
+    const doc = get().document
+    if (!doc?.use_cases) return []
+
+    const edges: NavigationEdge[] = []
+
+    for (const uc of doc.use_cases) {
+      if (!uc.visual_element_id || uc.visual_element_id === 'pending') continue
+
+      const targets = (uc.postconditions ?? [])
+        .filter((p) => p.startsWith('screen_id:'))
+        .map((p) => p.replace('screen_id:', '').trim())
+
+      const label = uc.name ?? uc.title
+
+      for (const targetId of targets) {
+        edges.push({
+          id: `edge_${uc.id}_${targetId}`,
+          sourceScreenId: uc.visual_element_id,
+          targetScreenId: targetId,
+          useCaseId: uc.id,
+          useCaseName: label,
+          label,
+        })
+      }
+    }
+
+    return edges
   },
 }))

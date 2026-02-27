@@ -9,6 +9,7 @@ export default {
   content: [
     './index.html',
     './src/**/*.{js,ts,jsx,tsx}',
+    './node_modules/@xyflow/react/dist/**/*.{js,mjs}',
   ],
   theme: {
     extend: {},
