@@ -8,6 +8,16 @@
 import { useWorkspaceStore } from '../../store/workspace.store'
 import { useDCMStore } from '../../store/dcm.store'
 
+const UC_STATUS_CLASSES: Record<string, string> = {
+  implemented: 'bg-green-900 text-green-400',
+  in_progress: 'bg-yellow-900 text-yellow-400',
+  deprecated: 'bg-gray-700 text-gray-500',
+}
+
+function ucStatusClass(status: string): string {
+  return UC_STATUS_CLASSES[status] ?? 'bg-gray-800 text-gray-500'
+}
+
 export function WorkspaceFeature() {
   const { project, isLoading, error, openProjectDialog, closeProject } = useWorkspaceStore()
   const { dcm } = useDCMStore()
@@ -37,7 +47,7 @@ export function WorkspaceFeature() {
             dcm_version: '1.0',
             visual_element_id: 'VE-Workspace-Open',
           })}
-          onClick={() => { void openProjectDialog() }}
+          onClick={() => { openProjectDialog().catch(() => undefined) }}
           disabled={isLoading}
           className="text-xs bg-blue-700 hover:bg-blue-600 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors"
         >
@@ -85,12 +95,7 @@ export function WorkspaceFeature() {
                 >
                   <span className="font-mono text-gray-500 mr-2">{uc.id}</span>
                   <span className="truncate flex-1">{uc.title}</span>
-                  <span className={`ml-2 text-xs px-1 rounded ${
-                    uc.status === 'implemented' ? 'bg-green-900 text-green-400' :
-                    uc.status === 'in_progress' ? 'bg-yellow-900 text-yellow-400' :
-                    uc.status === 'deprecated' ? 'bg-gray-700 text-gray-500' :
-                    'bg-gray-800 text-gray-500'
-                  }`}>
+                  <span className={`ml-2 text-xs px-1 rounded ${ucStatusClass(uc.status)}`}>
                     {uc.status}
                   </span>
                 </div>

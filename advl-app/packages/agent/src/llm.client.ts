@@ -181,9 +181,14 @@ export const llmClient = {
    * Used by UC-007 code generation for real-time response broadcast via WS.
    */
   async *stream(userPrompt: string, systemPromptOrDCM?: string | DCM): AsyncGenerator<string> {
-    const system = typeof systemPromptOrDCM === 'string'
-      ? systemPromptOrDCM
-      : buildAdvlSystemPrompt(typeof systemPromptOrDCM === 'object' ? systemPromptOrDCM : undefined)
+    let system: string
+    if (typeof systemPromptOrDCM === 'string') {
+      system = systemPromptOrDCM
+    } else if (typeof systemPromptOrDCM === 'object') {
+      system = buildAdvlSystemPrompt(systemPromptOrDCM)
+    } else {
+      system = buildAdvlSystemPrompt()
+    }
 
     const stream = await client.chat.completions.create({
       model: DEFAULT_MODEL,

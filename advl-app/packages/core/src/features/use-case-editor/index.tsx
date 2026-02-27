@@ -62,27 +62,33 @@ function ArrayField({
   return (
     <div className="flex flex-col gap-1">
       <span className="text-[10px] text-gray-600 uppercase tracking-wider">{label}</span>
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-1">
-          <input
-            type="text"
-            value={item}
-            onChange={(e) => update(i, e.target.value)}
-            disabled={disabled}
-            placeholder={placeholder}
-            className="flex-1 bg-gray-800 text-gray-200 text-xs rounded px-2 py-1 outline-none placeholder-gray-600 disabled:opacity-50 focus:ring-1 focus:ring-blue-700"
-          />
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            disabled={disabled}
-            className="text-gray-700 hover:text-red-400 text-xs px-1 disabled:opacity-40"
-            title="Remove"
-          >
-            ✕
-          </button>
-        </div>
-      ))}
+      {items.map((item, i) => {
+        const fieldId = `${label.toLowerCase().replace(/\s+/g, '-')}-${i}`
+        return (
+          <div key={fieldId} className="flex items-center gap-1">
+            <input
+              id={fieldId}
+              aria-label={`${label} item ${i + 1}`}
+              type="text"
+              value={item}
+              onChange={(e) => update(i, e.target.value)}
+              disabled={disabled}
+              placeholder={placeholder}
+              className="flex-1 bg-gray-800 text-gray-200 text-xs rounded px-2 py-1 outline-none placeholder-gray-600 disabled:opacity-50 focus:ring-1 focus:ring-blue-700"
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              disabled={disabled}
+              aria-label={`Remove ${label} item ${i + 1}`}
+              className="text-gray-700 hover:text-red-400 text-xs px-1 disabled:opacity-40"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        )
+      })}
       <button
         type="button"
         onClick={add}
@@ -136,7 +142,7 @@ export function UseCaseEditorFeature() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!isValid || isThinking) return
-    void submitUseCase(buildDescription())
+    submitUseCase(buildDescription()).catch(() => undefined)
     setSubmitted(true)
   }
 

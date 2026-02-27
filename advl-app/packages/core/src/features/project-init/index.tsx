@@ -118,10 +118,11 @@ export function ProjectInitFeature() {
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+        <label htmlFor="init-project-name" className="text-[10px] text-gray-600 uppercase tracking-wider">
           Project Name <span className="text-red-500">*</span>
         </label>
         <input
+          id="init-project-name"
           type="text"
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
@@ -132,11 +133,12 @@ export function ProjectInitFeature() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-[10px] text-gray-600 uppercase tracking-wider">
+        <label htmlFor="init-target-path" className="text-[10px] text-gray-600 uppercase tracking-wider">
           Target Directory <span className="text-red-500">*</span>
         </label>
         <div className="flex gap-1">
           <input
+            id="init-target-path"
             type="text"
             value={targetPath}
             onChange={(e) => setTargetPath(e.target.value)}
@@ -146,7 +148,7 @@ export function ProjectInitFeature() {
           />
           <button
             type="button"
-            onClick={() => void pickFolder()}
+            onClick={() => { pickFolder().catch(() => undefined) }}
             disabled={isRunning}
             className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded px-2 py-1 disabled:opacity-40 shrink-0"
             title="Pick folder"

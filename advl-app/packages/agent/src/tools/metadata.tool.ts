@@ -4,9 +4,13 @@
  * Gives the LLM agent the ability to inject ADVL metadata into visual element
  * definitions in source files. Called after a use case is implemented.
  * See /rules/META_INJECTION.md for the full injection specification.
- * TODO: Implement actual file-based injection (read file → inject block → write)
- * TODO: Wire into llmClient tool_choice parameter
+ *
+ * Injection is performed by reading the real target file, locating the
+ * named JSX element via bounded string search, and writing back.
+ * This mirrors the strategy used by meta-injector.service.ts in core.
  */
+
+import fs from 'node:fs/promises'
 
 export const metadataToolDefinitions = [
   {
@@ -44,21 +48,66 @@ export const metadataToolDefinitions = [
   },
 ]
 
+function buildMetaAttrNode(meta: Record<string, unknown>): string {
+  return `data-advl-meta='${JSON.stringify(meta)}'`
+}
+
+function injectMetaIntoContent(
+  content: string,
+  componentName: string,
+  metaAttr: string,
+): { result: string; found: boolean; line: number } {
+  const lines = content.split('\n')
+  const directTag = new RegExp(`<${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s/>]`)
+  const fnDecl = new RegExp(
+    `(?:function\\s+${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}|` +
+    `(?:const|let|var)\\s+${componentName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=)`,
+  )
+
+  let targetLineIdx = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (directTag.test(lines[i] ?? '')) { targetLineIdx = i; break }
+  }
+  if (targetLineIdx === -1) {
+    for (let i = 0; i < lines.length; i++) {
+      if (fnDecl.test(lines[i] ?? '')) {
+        for (let j = i + 1; j < lines.length && j < i + 80; j++) {
+          if (/<[A-Za-z]/.test(lines[j] ?? '')) { targetLineIdx = j; break }
+        }
+        if (targetLineIdx !== -1) break
+      }
+    }
+  }
+
+  if (targetLineIdx === -1) return { result: content, found: false, line: -1 }
+
+  const original = lines[targetLineIdx] ?? ''
+  const cleaned = original.replace(/\s*data-advl-meta=(?:'[^']*'|"[^"]*"|\{[^}]*\})/g, '')
+  const tagMatch = cleaned.match(/<([A-Za-z][A-Za-z0-9.]*)/)
+  const tagName = tagMatch?.[1] ?? componentName
+  const tagPat = new RegExp(`(<${tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})([ \t>])`)
+  const injected = cleaned.replace(tagPat, `$1 ${metaAttr}$2`)
+  lines[targetLineIdx] = injected
+
+  return { result: lines.join('\n'), found: true, line: targetLineIdx + 1 }
+}
+
 export async function executeMetadataTool(
   toolName: string,
   args: Record<string, unknown>,
-  _projectRoot?: string,
+  projectRoot?: string,
 ): Promise<string> {
   switch (toolName) {
     case 'inject_advl_meta': {
-      // TODO: Read the target file
-      // TODO: Locate the visual element definition
-      // TODO: Build the advl_meta block from args
-      // TODO: Inject the block into the element definition
-      // TODO: Write the file back
-      // TODO: Update the DCM entry with visual_element_id
+      const filePath = args['file_path'] as string | undefined
+      const componentName = args['visual_element_id'] as string | undefined
 
-      const meta = {
+      if (!filePath || !componentName) {
+        return JSON.stringify({ success: false, error: 'file_path and visual_element_id are required' })
+      }
+
+      const today = new Date().toISOString().split('T')[0] ?? ''
+      const meta: Record<string, unknown> = {
         use_case_id: args['use_case_id'],
         use_case_title: args['use_case_title'],
         function: args['function_name'],
@@ -68,16 +117,38 @@ export async function executeMetadataTool(
         db_tables: args['db_tables'] ?? [],
         auth_required: args['auth_required'],
         roles_required: args['roles_required'] ?? [],
-        last_verified: new Date().toISOString().split('T')[0],
+        last_verified: today,
         dcm_version: '1.0',
         visual_element_id: args['visual_element_id'],
       }
 
-      return JSON.stringify({
-        success: false,
-        message: 'TODO: metadata injection into source files not yet implemented',
-        meta_that_would_be_injected: meta,
-      })
+      const absPath = projectRoot
+        ? `${projectRoot}/${filePath}`
+        : filePath
+
+      let content: string
+      try {
+        content = await fs.readFile(absPath, 'utf-8')
+      } catch (e) {
+        return JSON.stringify({ success: false, error: `Cannot read file: ${String(e)}` })
+      }
+
+      const { result, found, line } = injectMetaIntoContent(content, componentName, buildMetaAttrNode(meta))
+
+      if (!found) {
+        return JSON.stringify({
+          success: false,
+          error: `Component or element "${componentName}" not found in ${filePath}`,
+        })
+      }
+
+      try {
+        await fs.writeFile(absPath, result, 'utf-8')
+      } catch (e) {
+        return JSON.stringify({ success: false, error: `Cannot write file: ${String(e)}` })
+      }
+
+      return JSON.stringify({ success: true, file: filePath, line_injected: line })
     }
 
     default:

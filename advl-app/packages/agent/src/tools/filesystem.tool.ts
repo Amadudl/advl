@@ -3,8 +3,8 @@
  *
  * Gives the LLM agent controlled access to the project filesystem.
  * Only operates within the project root — no path traversal outside it.
- * TODO: Add path traversal protection (ensure all paths stay within projectRoot)
- * TODO: Wire into llmClient tool_choice parameter
+ * Path traversal is prevented by resolving and verifying the absolute path
+ * starts with the project root before any read/write operation.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -55,13 +55,21 @@ export const filesystemToolDefinitions = [
   },
 ]
 
+function resolveAndValidatePath(projectRoot: string, relativePath: string): string | null {
+  const resolved = path.resolve(path.join(projectRoot, relativePath))
+  const root = path.resolve(projectRoot)
+  return resolved.startsWith(root + path.sep) || resolved === root ? resolved : null
+}
+
 export async function executeFilesystemTool(
   toolName: string,
   args: Record<string, string>,
   projectRoot: string,
 ): Promise<string> {
-  // TODO: Add path traversal protection before each operation
-  const safePath = path.join(projectRoot, args['path'] ?? '')
+  const safePath = resolveAndValidatePath(projectRoot, args['path'] ?? '')
+  if (!safePath) {
+    return JSON.stringify({ success: false, error: 'Path traversal outside project root is not permitted' })
+  }
 
   switch (toolName) {
     case 'read_file': {

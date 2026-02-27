@@ -76,8 +76,8 @@ function RuleGroup({
       </button>
       {expanded && (
         <div className="px-2 pb-2 flex flex-col gap-1">
-          {items.map((item, i) => (
-            <div key={i} className="flex gap-1.5 items-start">
+          {items.map((item) => (
+            <div key={`${item.rule}:${item.detail}`} className="flex gap-1.5 items-start">
               <span className={`mt-0.5 shrink-0 ${colors.dot}`}>{variant === 'error' ? '✗' : '⚠'}</span>
               <span className="text-[10px] text-gray-400 break-words">{item.detail}</span>
             </div>
@@ -139,7 +139,7 @@ export function ComplianceDashboard() {
         <>
           <button
             type="button"
-            onClick={() => void handleRun()}
+            onClick={() => { handleRun().catch(() => undefined) }}
             disabled={isRunning}
             data-advl-meta={JSON.stringify(UC008_META)}
             className="text-xs bg-violet-700 hover:bg-violet-600 disabled:opacity-40 text-white rounded px-3 py-1.5 transition-colors"

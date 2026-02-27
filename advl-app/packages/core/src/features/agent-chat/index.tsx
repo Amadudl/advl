@@ -57,7 +57,7 @@ export function AgentChatFeature() {
     e.preventDefault()
     const trimmed = input.trim()
     if (!trimmed || isThinking) return
-    void sendQuery(trimmed)
+    sendQuery(trimmed).catch(() => undefined)
     setInput('')
   }
 
@@ -66,7 +66,7 @@ export function AgentChatFeature() {
       e.preventDefault()
       const trimmed = input.trim()
       if (!trimmed || isThinking) return
-      void submitUseCase(trimmed)
+      submitUseCase(trimmed).catch(() => undefined)
       setInput('')
     }
   }
@@ -86,21 +86,24 @@ export function AgentChatFeature() {
             Agent ready. Ask anything or Shift+Enter to submit a Use Case.
           </div>
         )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={[
-              'text-xs rounded px-2 py-1.5 max-w-full whitespace-pre-wrap break-words',
-              msg.role === 'user'
-                ? 'bg-blue-900/80 text-blue-100 self-end ml-4'
-                : msg.success === false
-                  ? 'bg-red-950/60 text-red-300 self-start mr-4 border border-red-800/40'
-                  : 'bg-gray-800 text-gray-300 self-start mr-4',
-            ].join(' ')}
-          >
-            {msg.content}
-          </div>
-        ))}
+        {messages.map((msg) => {
+          let bubbleClass: string
+          if (msg.role === 'user') {
+            bubbleClass = 'bg-blue-900/80 text-blue-100 self-end ml-4'
+          } else if (msg.success === false) {
+            bubbleClass = 'bg-red-950/60 text-red-300 self-start mr-4 border border-red-800/40'
+          } else {
+            bubbleClass = 'bg-gray-800 text-gray-300 self-start mr-4'
+          }
+          return (
+            <div
+              key={msg.id}
+              className={`text-xs rounded px-2 py-1.5 max-w-full whitespace-pre-wrap break-words ${bubbleClass}`}
+            >
+              {msg.content}
+            </div>
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 

@@ -67,7 +67,8 @@ export function createMainWindow(): BrowserWindow {
     savedState = { width, height, x: wx, y: wy }
   })
 
-  // TODO: Persist savedState to disk via electron-store between sessions
+  // Window state persists only for the current session (in-memory).
+  // For cross-session persistence, wire savedState to electron-store when needed.
 
   return win
 }

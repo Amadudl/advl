@@ -63,7 +63,7 @@ export const rulesEngine = {
 
   /**
    * Get a specific rule's content for injection into LLM context.
-   * TODO: Used by llmClient to build the system prompt with relevant rules
+   * Used by llmClient.buildAdvlSystemPrompt() when building rule-aware prompts.
    */
   async getRuleContent(ruleName: string, projectRoot?: string): Promise<string | null> {
     const root = projectRoot ?? process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()

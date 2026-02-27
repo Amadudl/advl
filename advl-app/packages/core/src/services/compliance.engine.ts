@@ -21,7 +21,7 @@
  *
  * UC-008 / VE-Compliance-Runner
  */
-import type { DCM, UseCase } from '@advl/shared'
+import type { DCM, UseCase, DCMFunction } from '@advl/shared'
 import { RULE_FILES, RULES_DIR, SCHEMA_DIR, DCM_FILENAME } from '@advl/shared'
 import { platform } from '../platform/adapter.factory'
 import { dcmService } from './dcm.service'
@@ -106,11 +106,9 @@ function checkStackDeclaration(dcm: DCM, report: ComplianceReport) {
   }
 }
 
-function checkUseCaseUniqueness(dcm: DCM, report: ComplianceReport) {
-  const all: UseCase[] = [...(dcm.use_cases ?? []), ...(dcm.deprecated ?? [])]
+function checkUCDuplicateIds(all: UseCase[], report: ComplianceReport) {
   const seen = new Set<string>()
   const dupes: string[] = []
-
   for (const uc of all) {
     if (!uc.id) { err(report, 'CR-02', 'Use case found with no id field'); continue }
     if (seen.has(uc.id)) dupes.push(uc.id)
@@ -121,20 +119,28 @@ function checkUseCaseUniqueness(dcm: DCM, report: ComplianceReport) {
   } else {
     pass(report, 'CR-02', `All use case IDs unique (${all.length} total)`)
   }
+}
 
+function checkUCFields(uc: UseCase, report: ComplianceReport) {
+  if (uc.id && !/^UC-\d{3,}$/.test(uc.id)) {
+    warn(report, 'CR-02', `Use case ID "${uc.id}" does not follow UC-XXX format`)
+  }
+  if (!VALID_STATUSES.includes(uc.status)) {
+    err(report, 'CR-02', `UC ${uc.id} has invalid status: "${uc.status}"`)
+  }
+  if (!uc.title) {
+    err(report, 'CR-02', `UC ${uc.id} is missing title`)
+  }
+  if (!uc.value) {
+    err(report, 'USE_CASE_FIRST', `UC ${uc.id} is missing value statement`)
+  }
+}
+
+function checkUseCaseUniqueness(dcm: DCM, report: ComplianceReport) {
+  const all: UseCase[] = [...(dcm.use_cases ?? []), ...(dcm.deprecated ?? [])]
+  checkUCDuplicateIds(all, report)
   for (const uc of all) {
-    if (uc.id && !/^UC-\d{3,}$/.test(uc.id)) {
-      warn(report, 'CR-02', `Use case ID "${uc.id}" does not follow UC-XXX format`)
-    }
-    if (!VALID_STATUSES.includes(uc.status)) {
-      err(report, 'CR-02', `UC ${uc.id} has invalid status: "${uc.status}"`)
-    }
-    if (!uc.title) {
-      err(report, 'CR-02', `UC ${uc.id} is missing title`)
-    }
-    if (!uc.value) {
-      err(report, 'USE_CASE_FIRST', `UC ${uc.id} is missing value statement`)
-    }
+    checkUCFields(uc, report)
   }
 }
 
@@ -184,6 +190,20 @@ function checkEndpointDuplication(dcm: DCM, report: ComplianceReport) {
   }
 }
 
+function checkFunctionRecord(ucId: string, fn: DCMFunction, report: ComplianceReport) {
+  if (!fn.name) err(report, 'CR-03', `UC ${ucId}: function record missing "name"`)
+  if (!fn.file) err(report, 'CR-03', `UC ${ucId}: function "${fn.name}" missing "file"`)
+  if (fn.line === null || fn.line === undefined) {
+    err(report, 'CR-03', `UC ${ucId}: function "${fn.name}" missing "line"`)
+  }
+  if (fn.auth_required === null || fn.auth_required === undefined) {
+    warn(report, 'CR-03', `UC ${ucId}: function "${fn.name}" missing "auth_required"`)
+  }
+  if (!fn.last_modified) {
+    warn(report, 'CR-03', `UC ${ucId}: function "${fn.name}" missing "last_modified"`)
+  }
+}
+
 function checkImplementedUseCases(dcm: DCM, report: ComplianceReport) {
   for (const uc of (dcm.use_cases ?? [])) {
     if (uc.status !== 'implemented') continue
@@ -192,17 +212,7 @@ function checkImplementedUseCases(dcm: DCM, report: ComplianceReport) {
     } else {
       pass(report, 'CR-03', `UC ${uc.id} has ${uc.functions.length} function(s) registered`)
       for (const fn of uc.functions) {
-        if (!fn.name) err(report, 'CR-03', `UC ${uc.id}: function record missing "name"`)
-        if (!fn.file) err(report, 'CR-03', `UC ${uc.id}: function "${fn.name}" missing "file"`)
-        if (fn.line === null || fn.line === undefined) {
-          err(report, 'CR-03', `UC ${uc.id}: function "${fn.name}" missing "line"`)
-        }
-        if (fn.auth_required === null || fn.auth_required === undefined) {
-          warn(report, 'CR-03', `UC ${uc.id}: function "${fn.name}" missing "auth_required"`)
-        }
-        if (!fn.last_modified) {
-          warn(report, 'CR-03', `UC ${uc.id}: function "${fn.name}" missing "last_modified"`)
-        }
+        checkFunctionRecord(uc.id, fn, report)
       }
     }
   }
@@ -281,6 +291,23 @@ function checkVisualElementIds(dcm: DCM, report: ComplianceReport) {
   }
 }
 
+const STUB_NAMES = ['todo', 'placeholder', 'stub'] as const
+
+function checkNoFakeFunctionRecord(ucId: string, fn: DCMFunction, report: ComplianceReport) {
+  if (fn.line === 0 || fn.line === null || fn.line === undefined) {
+    warn(report, 'NO_FAKE', `UC ${ucId}: function "${fn.name}" has line 0 or null`)
+  }
+  if (fn.auth_required === null || fn.auth_required === undefined) {
+    err(report, 'NO_FAKE', `UC ${ucId}: function "${fn.name}" has no auth_required value`)
+  }
+  const nameLower = (fn.name ?? '').toLowerCase()
+  if (!fn.name || fn.name.trim() === '') {
+    err(report, 'NO_FAKE', `UC ${ucId}: function record with empty name — stub detected`)
+  } else if (STUB_NAMES.some((s) => nameLower.includes(s))) {
+    err(report, 'NO_FAKE', `UC ${ucId}: function name "${fn.name}" suggests a stub`)
+  }
+}
+
 function checkNoFakeCompliance(dcm: DCM, report: ComplianceReport) {
   for (const uc of (dcm.use_cases ?? [])) {
     if (uc.status !== 'implemented') continue
@@ -288,18 +315,7 @@ function checkNoFakeCompliance(dcm: DCM, report: ComplianceReport) {
       warn(report, 'NO_FAKE', `UC ${uc.id} is "implemented" but NO_FAKE not in rules_applied`)
     }
     for (const fn of (uc.functions ?? [])) {
-      if (fn.line === 0 || fn.line === null || fn.line === undefined) {
-        warn(report, 'NO_FAKE', `UC ${uc.id}: function "${fn.name}" has line 0 or null`)
-      }
-      if (fn.auth_required === null || fn.auth_required === undefined) {
-        err(report, 'NO_FAKE', `UC ${uc.id}: function "${fn.name}" has no auth_required value`)
-      }
-      const nameLower = (fn.name ?? '').toLowerCase()
-      if (!fn.name || fn.name.trim() === '') {
-        err(report, 'NO_FAKE', `UC ${uc.id}: function record with empty name — stub detected`)
-      } else if (nameLower.includes('todo') || nameLower.includes('placeholder') || nameLower.includes('stub')) {
-        err(report, 'NO_FAKE', `UC ${uc.id}: function name "${fn.name}" suggests a stub`)
-      }
+      checkNoFakeFunctionRecord(uc.id, fn, report)
     }
     if (uc.functions && uc.functions.length > 0) {
       pass(report, 'NO_FAKE', `UC ${uc.id}: implemented with ${uc.functions.length} function(s)`)
