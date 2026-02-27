@@ -7,9 +7,7 @@
  */
 import { platform } from './platform/adapter.factory'
 
-// Feature stubs — full implementations come later per use case
 import { WorkspaceFeature } from './features/workspace'
-import { CanvasFeature } from './features/canvas'
 import { UseCaseEditorFeature } from './features/use-case-editor'
 import { DCMViewerFeature } from './features/dcm-viewer'
 import { AgentChatFeature } from './features/agent-chat'
@@ -24,7 +22,6 @@ export default function App() {
         <div className="text-xs font-bold text-blue-400 tracking-widest rotate-0">ADVL</div>
         <nav className="flex flex-col gap-2 mt-4">
           <SidebarIcon label="WS" title="Workspace" />
-          <SidebarIcon label="CV" title="Canvas" />
           <SidebarIcon label="UC" title="Use Case Editor" />
           <SidebarIcon label="DC" title="DCM Viewer" />
           <SidebarIcon label="AI" title="Agent Chat" />
@@ -44,11 +41,6 @@ export default function App() {
         {/* Left panel — Workspace/Project tree */}
         <section className="w-64 border-r border-gray-800 overflow-y-auto">
           <WorkspaceFeature />
-        </section>
-
-        {/* Center — Canvas */}
-        <section className="flex-1 overflow-hidden">
-          <CanvasFeature />
         </section>
 
         {/* Right panel — Use Case Editor + DCM Viewer */}

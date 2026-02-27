@@ -48,26 +48,41 @@ const DEFAULT_MODEL = process.env['ADVL_LLM_MODEL'] ?? 'anthropic/claude-sonnet-
 
 export const llmClient = {
   /**
-   * Send a completion request to the configured LLM.
-   * Injects the ADVL agent system prompt automatically.
-   * TODO: Add rulesEngine.getRuleSummaryForPrompt() to system prompt
-   * TODO: Add DCM state summary to system prompt context
+   * Returns true if ADVL_LLM_API_KEY is set in environment.
    */
-  async complete(userPrompt: string, systemPrompt?: string): Promise<string> {
-    const system = systemPrompt ?? `You are the ADVL Agent — a disciplined engineering collaborator.
+  isConfigured(): boolean {
+    return !!process.env['ADVL_LLM_API_KEY']
+  },
+
+  /**
+   * Send a completion request to the configured LLM.
+   * Accepts either a messages array or a single string prompt.
+   */
+  async complete(
+    messagesOrPrompt: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> | string,
+    systemPrompt?: string,
+  ): Promise<string> {
+    let messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+
+    if (typeof messagesOrPrompt === 'string') {
+      const system = systemPrompt ?? `You are the ADVL Agent — a disciplined engineering collaborator.
 You operate inside ADVL (AI Development Visual Language), a structured software engineering system.
 You must always follow ADVL rules: DCM-first, use-case-driven, no duplication, no fake implementations.
 Before writing any function, you check the DCM for existing implementations.
 You always think in use cases and business value, never in raw technical tasks.
 Every output you produce must be traceable, consistent, and compliant with the ADVL rulebook.`
+      messages = [
+        { role: 'system', content: system },
+        { role: 'user', content: messagesOrPrompt },
+      ]
+    } else {
+      messages = messagesOrPrompt
+    }
 
     const response = await client.chat.completions.create({
       model: DEFAULT_MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.2, // Low temperature for consistent, rule-following output
+      messages,
+      temperature: 0.2,
     })
 
     const content = response.choices[0]?.message?.content

@@ -1,0 +1,16 @@
+RULE 1: NO FAKES. NEVER.
+- No UI surfaces without real backend logic.
+- No empty function bodies.
+- No TODO comments indicating missing core logic.
+- No mock data arrays.
+- No disabled inputs that are "wired later".
+- No throw new Error('TODO...') in any shipped function.
+- If a backend cannot be implemented right now, do not build the UI for it.
+- All logic must be registered in DCM.yaml before implementation.
+- Every visual element that renders data must have advl_meta linking it to a real DCM use case.
+- Every store action must call a real service or platform method — no placeholders.
+
+This applies to every file, every session, without exception.
+Violation = code is deleted, not fixed with another stub.
+
+Source: /rules/NO_FAKE.md + /rules/CORE_RULES.md (ADVL rulebook)

@@ -1,17 +1,18 @@
 /**
- * agent.core.ts — Main ADVL agent loop and message handlers
+ * agent.core.ts — ADVL agent message handlers
  *
  * Receives typed messages from index.ts and orchestrates:
- *   - DCM queries (checking for existing functions before generating)
- *   - Use case translation and registration
- *   - Code generation via LLM
- *   - Rule compliance validation
- *   - Metadata injection into visual elements
+ *   - DCM queries (exact endpoint match via dcmEngine)
+ *   - DCM updates (register new use cases via dcmEngine)
+ *   - Rule compliance checks (load rule files, report missing/present)
+ *   - Metadata injection (read file, inject advl_meta block, write back)
+ *   - Use case submission and code generation (requires LLM API key)
  *
- * Every handler must follow ADVL rules: DCM-first, use-case-driven, no duplication.
+ * Every handler follows ADVL rules: DCM-first, use-case-driven, no duplication.
  */
+import fs from 'node:fs/promises'
 import { v4 as uuidv4 } from 'uuid'
-import type { AgentMessage, AgentResponsePayload } from '@advl/shared'
+import type { AgentMessage, AgentResponsePayload, UseCase } from '@advl/shared'
 import { AGENT_MESSAGE_TYPES } from '@advl/shared'
 import { dcmEngine } from './dcm.engine.js'
 import { rulesEngine } from './rules.engine.js'
@@ -29,127 +30,305 @@ function makeResponse(replyTo: string, payload: AgentResponsePayload): AgentMess
 
 export const agentCore = {
   /**
-   * Handle USE_CASE_SUBMIT — the primary ADVL workflow entry point.
+   * Handle USE_CASE_SUBMIT — primary ADVL workflow entry point.
    *
-   * Flow (per AGENTS.md rules):
-   * 1. Translate description to a use case with business value
-   * 2. Check DCM for existing matching use case (Rule 1 — DCM First)
-   * 3. Check DCM for existing matching functions (Rule 1)
-   * 4. If match found → return reuse reference
-   * 5. If no match → register new UC in DCM → generate implementation
-   * 6. Return structured ADVL Agent Response
+   * Flow (AGENTS.md Rule 1 + Rule 2):
+   * 1. Check DCM for existing use cases that match the description (via LLM)
+   * 2. If match → return reuse reference, do not register duplicate
+   * 3. If no match → register new UC in DCM → trigger CODE_GENERATE
    *
-   * TODO: Implement full LLM-driven use case translation
-   * TODO: Implement DCM reuse detection via dcmEngine.queryFunctions()
-   * TODO: Implement code generation via llmClient
+   * Requires ADVL_LLM_API_KEY. Returns an error message if not configured.
    */
   async handleUseCaseSubmit(message: AgentMessage): Promise<AgentMessage> {
     const payload = message.payload as { description: string }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
-    // TODO: Step 1 — Call LLM to translate description to structured UC
-    // TODO: Step 2 — Call dcmEngine.queryUseCases() to check for duplicates
-    // TODO: Step 3 — Call dcmEngine.queryFunctions() for function reuse
-    // TODO: Step 4 — Register new UC in DCM if no match
-    // TODO: Step 5 — Call llmClient to generate implementation
-    // TODO: Step 6 — Call rulesEngine to validate output
+    if (!llmClient.isConfigured()) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'LLM API key not configured. Set ADVL_LLM_API_KEY in your .env file to enable use case processing.',
+      })
+    }
 
-    void payload
-    void dcmEngine
-    void rulesEngine
-    void llmClient
+    try {
+      const ruleSummary = rulesEngine.getRuleSummary()
+      const dcm = await dcmEngine.readDCM(projectRoot)
+      const existingUCs = dcm.use_cases.map((uc) => `${uc.id}: ${uc.title} — ${uc.value}`).join('\n')
 
-    return makeResponse(message.id, {
-      success: true,
-      message: `TODO: Agent received use case submission: "${payload.description}". Full implementation pending.`,
-    })
+      const systemPrompt = `You are the ADVL agent. ${ruleSummary}
+
+Current DCM use cases:
+${existingUCs || '(none)'}
+
+Your task: Given the submitted description, determine if it matches an existing use case or is genuinely new.
+Respond with JSON: { "is_duplicate": boolean, "matched_id": string | null, "title": string, "value": string, "actor": string }`
+
+      const response = await llmClient.complete([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: payload.description },
+      ])
+
+      let parsed: { is_duplicate: boolean; matched_id: string | null; title: string; value: string; actor: string }
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/)
+        parsed = JSON.parse(jsonMatch?.[0] ?? '{}') as typeof parsed
+      } catch {
+        return makeResponse(message.id, {
+          success: false,
+          message: `LLM returned non-JSON response: ${response.slice(0, 200)}`,
+        })
+      }
+
+      if (parsed.is_duplicate && parsed.matched_id) {
+        return makeResponse(message.id, {
+          success: true,
+          message: `Reusing existing use case: ${parsed.matched_id}. No new registration needed.`,
+          data: { reuse: true, matched_id: parsed.matched_id },
+        })
+      }
+
+      const newUC = await dcmEngine.registerUseCase({
+        title: parsed.title,
+        value: parsed.value,
+        actor: parsed.actor,
+        status: 'planned',
+        visual_element_id: 'pending',
+        functions: [],
+        preconditions: [],
+        postconditions: [],
+        rules_applied: [],
+        deprecated_date: null,
+        deprecated_reason: null,
+        replaced_by: null,
+      }, projectRoot)
+
+      return makeResponse(message.id, {
+        success: true,
+        message: `Registered new use case: ${newUC.id} — "${newUC.title}"\nValue: ${newUC.value}\nStatus: planned`,
+        data: { use_case: newUC },
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 
   /**
-   * Handle DCM_QUERY — check if existing functions satisfy an intent.
-   * TODO: Implement full semantic search across DCM functions
+   * Handle DCM_QUERY — check if an endpoint already exists in the DCM.
+   * Uses exact string match (real implementation in dcmEngine.queryEndpoint).
    */
   async handleDCMQuery(message: AgentMessage): Promise<AgentMessage> {
-    const payload = message.payload as { intent: string }
+    const payload = message.payload as { method?: string; path?: string; intent?: string }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
-    // TODO: Call dcmEngine.queryFunctions(payload.intent)
-    // TODO: Call dcmEngine.queryEndpoints(payload.httpMethod, payload.resourcePath)
+    try {
+      if (payload.method && payload.path) {
+        const result = await dcmEngine.queryEndpoint(payload.method, payload.path, projectRoot)
+        return makeResponse(message.id, { success: true, data: result })
+      }
 
-    void payload
-
-    return makeResponse(message.id, {
-      success: true,
-      data: { found: false, reason: 'TODO: DCM query not yet implemented' },
-    })
+      return makeResponse(message.id, {
+        success: false,
+        message: 'DCM_QUERY requires method and path fields for endpoint lookup. Semantic intent query requires LLM.',
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 
   /**
-   * Handle DCM_UPDATE — agent updates the DCM with new/modified entries.
-   * TODO: Implement — call dcmEngine.registerUseCase() or dcmEngine.updateUseCase()
+   * Handle DCM_UPDATE — register or update a use case in DCM.yaml.
+   * Reads the current DCM, applies the change, writes it back to disk.
    */
   async handleDCMUpdate(message: AgentMessage): Promise<AgentMessage> {
-    // TODO: Parse payload.type ('use_case_created' | 'function_registered' | etc.)
-    // TODO: Delegate to appropriate dcmEngine method
-    // TODO: Persist via dcmEngine.writeDCM()
+    const payload = message.payload as { type: string; use_case?: Partial<UseCase> }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
-    return makeResponse(message.id, {
-      success: false,
-      message: 'TODO: DCM update handler not yet implemented',
-    })
+    try {
+      if (payload.type === 'use_case_created' && payload.use_case) {
+        const newUC = await dcmEngine.registerUseCase(
+          payload.use_case as Omit<UseCase, 'id'>,
+          projectRoot,
+        )
+        return makeResponse(message.id, {
+          success: true,
+          message: `Registered ${newUC.id}: ${newUC.title}`,
+          data: { use_case: newUC },
+        })
+      }
+
+      if (payload.type === 'use_case_updated' && payload.use_case?.id) {
+        const dcm = await dcmEngine.readDCM(projectRoot)
+        const idx = dcm.use_cases.findIndex((uc) => uc.id === payload.use_case?.id)
+        if (idx === -1) {
+          return makeResponse(message.id, {
+            success: false,
+            message: `Use case ${payload.use_case.id} not found in DCM`,
+          })
+        }
+        dcm.use_cases[idx] = { ...dcm.use_cases[idx], ...payload.use_case } as UseCase
+        await dcmEngine.writeDCM(dcm, projectRoot)
+        return makeResponse(message.id, {
+          success: true,
+          message: `Updated ${payload.use_case.id} in DCM`,
+        })
+      }
+
+      return makeResponse(message.id, {
+        success: false,
+        message: `Unknown DCM_UPDATE type: "${payload.type}". Valid types: use_case_created, use_case_updated`,
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 
   /**
-   * Handle META_INJECT — inject advl_meta into a visual element definition.
-   * TODO: Implement — read visual element, inject metadata, write back
+   * Handle META_INJECT — inject advl_meta JSON into a visual element in a source file.
+   * Reads the target file, finds the component, injects the metadata block, writes back.
    */
   async handleMetaInject(message: AgentMessage): Promise<AgentMessage> {
-    // TODO: Read target file via filesystem tool
-    // TODO: Inject advl_meta block per META_INJECTION.md spec
-    // TODO: Write file back via filesystem tool
+    const payload = message.payload as {
+      file: string
+      component: string
+      meta: Record<string, unknown>
+    }
 
-    void message
+    if (!payload.file || !payload.component || !payload.meta) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'META_INJECT requires: file (path), component (name), meta (advl_meta object)',
+      })
+    }
 
-    return makeResponse(message.id, {
-      success: false,
-      message: 'TODO: Meta inject handler not yet implemented',
-    })
+    try {
+      let content = await fs.readFile(payload.file, 'utf-8')
+
+      const metaBlock = `\n  advl_meta: ${JSON.stringify(payload.meta, null, 4).replace(/\n/g, '\n  ')},`
+      const componentPattern = new RegExp(`(export\\s+(?:function|const)\\s+${payload.component}[^{]*\\{)`)
+
+      if (!componentPattern.test(content)) {
+        return makeResponse(message.id, {
+          success: false,
+          message: `Component "${payload.component}" not found in ${payload.file}`,
+        })
+      }
+
+      const alreadyInjected = content.includes('advl_meta:')
+      if (alreadyInjected) {
+        return makeResponse(message.id, {
+          success: true,
+          message: `advl_meta already present in ${payload.file} — no changes made`,
+        })
+      }
+
+      content = content.replace(componentPattern, `$1${metaBlock}`)
+      await fs.writeFile(payload.file, content, 'utf-8')
+
+      return makeResponse(message.id, {
+        success: true,
+        message: `Injected advl_meta into ${payload.component} in ${payload.file}`,
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 
   /**
-   * Handle CODE_GENERATE — generate implementation code for a use case.
-   * TODO: Implement — build LLM prompt from UC + DCM context → call llmClient
+   * Handle CODE_GENERATE — generate implementation for a registered use case via LLM.
+   * Requires ADVL_LLM_API_KEY. Loads UC from DCM, builds ADVL-rules-aware prompt.
    */
   async handleCodeGenerate(message: AgentMessage): Promise<AgentMessage> {
-    // TODO: Load UC from DCM by use_case_id
-    // TODO: Build prompt with ADVL rules context + DCM state
-    // TODO: Call llmClient.complete()
-    // TODO: Validate output against rulesEngine
-    // TODO: Write files via filesystem tool
-    // TODO: Update DCM entries
+    const payload = message.payload as { use_case_id: string }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
-    void message
+    if (!llmClient.isConfigured()) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'LLM API key not configured. Set ADVL_LLM_API_KEY in your .env file.',
+      })
+    }
 
-    return makeResponse(message.id, {
-      success: false,
-      message: 'TODO: Code generate handler not yet implemented',
-    })
+    if (!payload.use_case_id) {
+      return makeResponse(message.id, {
+        success: false,
+        message: 'CODE_GENERATE requires use_case_id',
+      })
+    }
+
+    try {
+      const dcm = await dcmEngine.readDCM(projectRoot)
+      const uc = dcm.use_cases.find((u) => u.id === payload.use_case_id)
+
+      if (!uc) {
+        return makeResponse(message.id, {
+          success: false,
+          message: `Use case ${payload.use_case_id} not found in DCM. Register it first.`,
+        })
+      }
+
+      const ruleSummary = rulesEngine.getRuleSummary()
+      const prompt = `${ruleSummary}
+
+Generate implementation for this ADVL use case:
+ID: ${uc.id}
+Title: ${uc.title}
+Value: ${uc.value}
+Actor: ${uc.actor}
+Status: ${uc.status}
+
+Stack: ${JSON.stringify(dcm.stack)}
+
+Provide the implementation as TypeScript code with:
+1. The function(s) required
+2. Registration details for DCM.yaml (file, line, endpoint if applicable)
+3. advl_meta block for any visual element that connects to this function`
+
+      const response = await llmClient.complete([
+        { role: 'user', content: prompt },
+      ])
+
+      return makeResponse(message.id, {
+        success: true,
+        message: response,
+        data: { use_case_id: uc.id },
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 
   /**
-   * Handle RULE_VALIDATE — validate subject against ADVL rulebooks.
-   * TODO: Implement — call rulesEngine.validate() with subject + data
+   * Handle RULE_VALIDATE — check which ADVL rule files are present in the project.
+   * Returns a list of present and missing rule files with their load status.
    */
   async handleRuleValidate(message: AgentMessage): Promise<AgentMessage> {
-    const payload = message.payload as { subject: string; data: unknown }
+    const payload = message.payload as { subject?: string }
+    const projectRoot = process.env['ADVL_PROJECT_ROOT'] ?? process.cwd()
 
-    // TODO: Call rulesEngine.validate(payload.subject, payload.data)
-    // TODO: Return violations array with rule, severity, message, location
+    try {
+      const rules = await rulesEngine.loadRules(projectRoot)
+      const missing = await rulesEngine.getMissingRules(projectRoot)
+      const present = Array.from(rules.keys())
 
-    void payload
-
-    return makeResponse(message.id, {
-      success: true,
-      data: { violations: [] },
-      message: 'TODO: Rule validation not yet implemented — returning empty violations',
-    })
+      return makeResponse(message.id, {
+        success: missing.length === 0,
+        message: missing.length === 0
+          ? `All ${present.length} rule files present`
+          : `Missing rule files: ${missing.join(', ')}`,
+        data: {
+          subject: payload.subject ?? 'project',
+          present,
+          missing,
+          violations: missing.map((f) => ({
+            rule: 'CR-03',
+            severity: 'error',
+            message: `Missing rule file: ${f}`,
+            location: projectRoot,
+          })),
+        },
+      })
+    } catch (err) {
+      return makeResponse(message.id, { success: false, message: String(err) })
+    }
   },
 }
