@@ -12,6 +12,7 @@
  */
 import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { spawn, ChildProcess } from 'node:child_process'
 import { createMainWindow } from './window.js'
 import { registerIpcHandlers } from './ipc.handlers.js'
@@ -20,12 +21,27 @@ const isDev = process.env['NODE_ENV'] === 'development'
 let agentProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
 
+function resolveBin(name: string): string {
+  const ext = process.platform === 'win32' ? '.cmd' : ''
+  const candidates = [
+    path.join(__dirname, '../../../node_modules/.bin', name + ext),
+    path.join(__dirname, '../../node_modules/.bin', name + ext),
+    path.join(__dirname, '../node_modules/.bin', name + ext),
+  ]
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  return name
+}
+
 function startAgent(): void {
   const agentEntryPoint = isDev
     ? path.join(__dirname, '../../agent/src/index.ts')
     : path.join(__dirname, '../../agent/dist/index.js')
 
-  const command = isDev ? 'tsx' : 'node'
+  const command = isDev ? resolveBin('tsx') : process.execPath
+
+  const useShell = process.platform === 'win32' && command.endsWith('.cmd')
 
   agentProcess = spawn(command, [agentEntryPoint], {
     env: {
@@ -33,6 +49,7 @@ function startAgent(): void {
       ADVL_AGENT_PORT: process.env['ADVL_AGENT_PORT'] ?? '7433',
     },
     stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
+    shell: useShell,
   })
 
   agentProcess.stdout?.on('data', (data: Buffer) => {
@@ -41,6 +58,11 @@ function startAgent(): void {
 
   agentProcess.stderr?.on('data', (data: Buffer) => {
     console.error('[Agent Error]', data.toString().trim())
+  })
+
+  agentProcess.on('error', (err) => {
+    console.error(`[Electron] Agent spawn error: ${err.message}`)
+    agentProcess = null
   })
 
   agentProcess.on('exit', (code) => {

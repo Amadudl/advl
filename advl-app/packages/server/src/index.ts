@@ -10,6 +10,7 @@ import express from 'express'
 import cors from 'cors'
 import { createServer } from 'node:http'
 import { spawn, ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { ADVL_VERSION, DEFAULT_SERVER_PORT, DEFAULT_AGENT_PORT } from '@advl/shared'
@@ -26,12 +27,27 @@ const isDev = process.env['NODE_ENV'] === 'development'
 
 let agentProcess: ChildProcess | null = null
 
+function resolveBin(name: string): string {
+  const ext = process.platform === 'win32' ? '.cmd' : ''
+  const candidates = [
+    path.join(__dirname, '../../../node_modules/.bin', name + ext),
+    path.join(__dirname, '../../node_modules/.bin', name + ext),
+    path.join(__dirname, '../node_modules/.bin', name + ext),
+  ]
+  for (const c of candidates) {
+    if (existsSync(c)) return c
+  }
+  return name
+}
+
 function startAgent(): void {
   const agentEntryPoint = isDev
     ? path.join(__dirname, '../../agent/src/index.ts')
     : path.join(__dirname, '../../agent/dist/index.js')
 
-  const command = isDev ? 'tsx' : 'node'
+  const command = isDev ? resolveBin('tsx') : process.execPath
+
+  const useShell = process.platform === 'win32' && command.endsWith('.cmd')
 
   agentProcess = spawn(command, [agentEntryPoint], {
     env: {
@@ -39,6 +55,7 @@ function startAgent(): void {
       ADVL_AGENT_PORT: process.env['ADVL_AGENT_PORT'] ?? String(DEFAULT_AGENT_PORT),
     },
     stdio: ['pipe', 'pipe', 'pipe'],
+    shell: useShell,
   })
 
   agentProcess.stdout?.on('data', (data: Buffer) => {
@@ -47,6 +64,11 @@ function startAgent(): void {
 
   agentProcess.stderr?.on('data', (data: Buffer) => {
     process.stderr.write(`[Agent Error] ${data.toString()}`)
+  })
+
+  agentProcess.on('error', (err) => {
+    console.error(`[Server] Agent spawn error: ${err.message}`)
+    agentProcess = null
   })
 
   agentProcess.on('exit', (code) => {
