@@ -9,6 +9,7 @@
  * ALL OS access goes through the typed bridge methods below.
  */
 import { contextBridge, ipcRenderer } from 'electron'
+// @ts-ignore
 import { IPC_CHANNELS } from '@advl/shared'
 
 // Signal to Core that it is running inside Electron

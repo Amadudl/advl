@@ -8,6 +8,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+// @ts-ignore
 import { IPC_CHANNELS } from '@advl/shared'
 
 let currentProjectRoot: string | null = null

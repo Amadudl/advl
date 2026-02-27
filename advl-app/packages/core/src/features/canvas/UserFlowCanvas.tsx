@@ -140,6 +140,13 @@ export function UserFlowCanvas() {
  *
  * advl_meta: { use_case_id: "UC-002", visual_element_id: "VE-Canvas-Flow" }
  */
+
+function nodeColorFn(node: { type?: string }): string {
+  if (node.type === 'useCaseNode') return '#818cf8'
+  if (node.type === 'functionNode') return '#a78bfa'
+  return '#34d399'
+}
+
 export function DCMArchCanvas() {
   const { document: dcm, setSelectedNode } = useDCMStore()
 
@@ -194,11 +201,6 @@ export function DCMArchCanvas() {
   const fnCount = nodes.filter((n) => n.type === 'functionNode').length
   const tableCount = nodes.filter((n) => n.type === 'dbTableNode').length
 
-  function nodeColorFn(node: { type?: string }): string {
-    if (node.type === 'useCaseNode') return '#818cf8'
-    if (node.type === 'functionNode') return '#a78bfa'
-    return '#34d399'
-  }
 
   return (
     <div className="w-full h-full bg-gray-950">

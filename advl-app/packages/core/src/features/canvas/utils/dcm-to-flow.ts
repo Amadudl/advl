@@ -97,7 +97,7 @@ const DB_COL_W = 200
 const DB_ROW_H = 100
 const DB_COLS = 6
 
-type AnyNodeData = UseCaseNodeData | FunctionNodeData | DbTableNodeData
+type AnyNodeData = any
 
 export function buildDCMGraph(doc: DCMDocument): { nodes: Node<AnyNodeData>[]; edges: Edge[] } {
   const nodes: Node<AnyNodeData>[] = []
