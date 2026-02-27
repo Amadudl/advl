@@ -3,8 +3,8 @@ schema_version: "1.0"
 project: "advl-app"
 description: "ADVL application — visual software engineering tool"
 author: "Amadeus Lederle / IEX Labs UG (haftungsbeschränkt)"
-created: ""
-last_updated: ""
+created: "2026-02-27"
+last_updated: "2026-02-27"
 
 stack:
   runtime: "Node.js 20"
@@ -27,7 +27,76 @@ stack:
 
 adrs: []
 
-use_cases: []
+use_cases:
+  - id: "UC-001"
+    title: "User opens an ADVL workspace directory"
+    value: "Establishes contextual project foundation (DCM file access) to enable visual rendering and agent-assisted development architecture."
+    status: "planned"
+    visual_element_id: "VE-Workspace-Open"
+    actor: "ADVL User (Developer/Architect)"
+    preconditions:
+      - "The selected directory contains an ADVL project structure and a schema/DCM.yaml file"
+    postconditions:
+      - "Project DCM is parsed into memory/Zustand store"
+      - "File system access is granted for relative path resolution"
+    functions: []
+    rules_applied: []
+    deprecated_date: null
+    deprecated_reason: null
+    replaced_by: null
+
+  - id: "UC-002"
+    title: "System renders DCM elements as interactive flow canvas"
+    value: "Transforms static YAML architecture into a living, visual 2D diagram, enabling humans to comprehend complex data and component flows instantly."
+    status: "planned"
+    visual_element_id: "VE-Canvas-Flow"
+    actor: "System"
+    preconditions:
+      - "A valid DCM is loaded in memory"
+    postconditions:
+      - "React Flow canvas displays nodes for Use Cases, Functions, and Database Tables"
+      - "Edges correctly map relationships (e.g., Use Case -> Function -> DB Table)"
+    functions: []
+    rules_applied: []
+    deprecated_date: null
+    deprecated_reason: null
+    replaced_by: null
+
+  - id: "UC-003"
+    title: "User queries the ADVL Agent via natural language"
+    value: "Translates human intent into structured architectural intent, bridging the gap between non-technical vision and rigorous code logic execution."
+    status: "planned"
+    visual_element_id: "VE-AgentChat-Submit"
+    actor: "ADVL User (Developer/Architect)"
+    preconditions:
+      - "Workspace is open"
+      - "Agent backend (LLM connection) is configured and active"
+    postconditions:
+      - "Agent receives query prompt"
+      - "Agent evaluates query against current DCM state and project rules"
+      - "Response is streamed or returned in a structured ADVL response format"
+    functions: []
+    rules_applied: []
+    deprecated_date: null
+    deprecated_reason: null
+    replaced_by: null
+
+  - id: "UC-004"
+    title: "User inspects detailed element metadata via canvas selection"
+    value: "Provides deep traceability (code file, line numbers, assigned rulebooks) directly from the visual layer without requiring context switching."
+    status: "planned"
+    visual_element_id: "VE-CanvasNode-Inspector"
+    actor: "ADVL User (Developer/Architect)"
+    preconditions:
+      - "Canvas is rendered"
+      - "Node is clicked"
+    postconditions:
+      - "Right-hand inspector panel populates with full 'advl_meta' linked properties associated with the entity selected"
+    functions: []
+    rules_applied: []
+    deprecated_date: null
+    deprecated_reason: null
+    replaced_by: null
 
 deprecated: []
 
