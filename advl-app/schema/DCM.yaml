@@ -634,3 +634,19 @@ use_cases:
 deprecated: []
 
 snapshots: []
+  - id: "UC-010"
+    title: "System reverse-engineers legacy codebase into DCM architecture"
+    value: "Eliminates architectural debt by reading raw code, extracting endpoints/DB definitions, building a structural graph, and forcing ghost logic to be registered."
+    status: "planned"
+    visual_element_id: "VE-ReverseEngineer-Submit"
+    actor: "System"
+    preconditions:
+      - "Workspace is open on an existing generic project"
+    postconditions:
+      - "AST or Scanner is used to build the DCM file"
+      - "Unlinked ghost functions are marked for review"
+    functions: []
+    rules_applied: []
+    deprecated_date: null
+    deprecated_reason: null
+    replaced_by: null
